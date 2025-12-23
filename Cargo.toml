@@ -1,0 +1,22 @@
+[workspace]
+resolver = "2"
+members = ["lessons/*"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85.0"
+
+
+
+[workspace.lints.rust]
+dead_code = "allow"
+unused_imports = "allow"
+unused_variables = "allow"
+unused = "allow"
+unused_mut = "allow"
+
+[package]
+name = "opentelemetry_gcloud_monitoring_exporter"
+
+[lib]
+doctest = false
