@@ -27,6 +27,54 @@ name = "overflowing_integer_in_rust"
 version = "0.1.0"
 
 [[package]]
+name = "practice_on_data_types_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_data_types_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_data_types_3"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_data_types_4"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_functions_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_functions_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_functions_3"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_functions_4"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_variables_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_variables_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_variables_3"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_variables_4"
+version = "0.1.0"
+
+[[package]]
 name = "primitive_data_types"
 version = "0.1.0"
 
