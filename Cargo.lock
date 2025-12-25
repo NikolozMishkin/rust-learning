@@ -3,7 +3,19 @@
 version = 4
 
 [[package]]
+name = "associativity_and_operator_overloading"
+version = "0.1.0"
+
+[[package]]
+name = "comments_and_more_on_printing"
+version = "0.1.0"
+
+[[package]]
 name = "common_syntaxes_for_loops_with_ranges"
+version = "0.1.0"
+
+[[package]]
+name = "compiler_directivess"
 version = "0.1.0"
 
 [[package]]
@@ -33,6 +45,14 @@ version = "0.1.0"
 [[package]]
 name = "opentelemetry_gcloud_monitoring_exporter"
 version = "0.0.0"
+
+[[package]]
+name = "operators"
+version = "0.1.0"
+
+[[package]]
+name = "operators_precedence"
+version = "0.1.0"
 
 [[package]]
 name = "overflowing_integer_in_rust"
@@ -104,6 +124,10 @@ version = "0.1.0"
 
 [[package]]
 name = "primitive_data_types"
+version = "0.1.0"
+
+[[package]]
+name = "variable_conventions__and_statics"
 version = "0.1.0"
 
 [[package]]
