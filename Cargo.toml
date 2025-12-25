@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["lessons/*"]
+members = ["lessons/*", "practice_on_conditionals_and_control_flow_4"]
 
 [workspace.package]
 edition = "2024"

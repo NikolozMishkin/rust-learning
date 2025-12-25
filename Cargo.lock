@@ -3,7 +3,19 @@
 version = 4
 
 [[package]]
+name = "common_syntaxes_for_loops_with_ranges"
+version = "0.1.0"
+
+[[package]]
 name = "compound_data_types"
+version = "0.1.0"
+
+[[package]]
+name = "conditionals"
+version = "0.1.0"
+
+[[package]]
+name = "control_flow"
 version = "0.1.0"
 
 [[package]]
@@ -24,6 +36,22 @@ version = "0.0.0"
 
 [[package]]
 name = "overflowing_integer_in_rust"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_conditionals_and_control_flow_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_conditionals_and_control_flow_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_conditionals_and_control_flow_3"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_conditionals_and_control_flow_4"
 version = "0.1.0"
 
 [[package]]
