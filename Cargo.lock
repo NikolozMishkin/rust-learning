@@ -59,6 +59,14 @@ name = "overflowing_integer_in_rust"
 version = "0.1.0"
 
 [[package]]
+name = "ownership_basics"
+version = "0.1.0"
+
+[[package]]
+name = "ownership_in_functions"
+version = "0.1.0"
+
+[[package]]
 name = "practice_on_conditionals_and_control_flow_1"
 version = "0.1.0"
 
@@ -104,6 +112,18 @@ version = "0.1.0"
 
 [[package]]
 name = "practice_on_functions_4"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_ownership_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_ownership_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_ownership_3"
 version = "0.1.0"
 
 [[package]]
