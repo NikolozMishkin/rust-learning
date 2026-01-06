@@ -3,7 +3,19 @@
 version = 4
 
 [[package]]
+name = "String_and_"
+version = "0.1.0"
+
+[[package]]
 name = "associativity_and_operator_overloading"
+version = "0.1.0"
+
+[[package]]
+name = "borrowing_basics"
+version = "0.1.0"
+
+[[package]]
+name = "borrowing_in_functions"
 version = "0.1.0"
 
 [[package]]
@@ -35,7 +47,15 @@ name = "convert_i32_to_u8"
 version = "0.1.0"
 
 [[package]]
+name = "convertation_in_rust"
+version = "0.1.0"
+
+[[package]]
 name = "data_types"
+version = "0.1.0"
+
+[[package]]
+name = "f32_and_f64_in_bits"
 version = "0.1.0"
 
 [[package]]
