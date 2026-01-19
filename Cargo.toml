@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["lessons/*"]
+members = ["lessons/*", "max_int_value_in_different_languages/max_int_in_rust"]
 
 [workspace.package]
 edition = "2024"

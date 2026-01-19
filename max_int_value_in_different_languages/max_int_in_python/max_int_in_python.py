@@ -1,0 +1,18 @@
+import time
+
+start_time = time.time()
+
+# a = 9223372036854775807  # i64 max value
+# a = 0  # i64 max value
+a = 9223372036854775807000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000  # i64 max value
+for _ in range(100000000):
+    a = a+1
+print(a)
+
+end_time = time.time()
+duration = end_time - start_time
+print(f"Execution duration: {duration:.4f} seconds")
+
+{
+    "id": 9223372036854775807
+}

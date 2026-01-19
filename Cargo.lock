@@ -55,11 +55,19 @@ name = "data_types"
 version = "0.1.0"
 
 [[package]]
+name = "dereferencing"
+version = "0.1.0"
+
+[[package]]
 name = "f32_and_f64_in_bits"
 version = "0.1.0"
 
 [[package]]
 name = "functions_and_code_blocks"
+version = "0.1.0"
+
+[[package]]
+name = "max_int_in_rust"
 version = "0.1.0"
 
 [[package]]
@@ -84,6 +92,14 @@ version = "0.1.0"
 
 [[package]]
 name = "ownership_in_functions"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_borrowing_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_borrowing_2"
 version = "0.1.0"
 
 [[package]]
@@ -147,6 +163,14 @@ name = "practice_on_ownership_3"
 version = "0.1.0"
 
 [[package]]
+name = "practice_on_structs_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_structs_2"
+version = "0.1.0"
+
+[[package]]
 name = "practice_on_variables_1"
 version = "0.1.0"
 
@@ -164,6 +188,10 @@ version = "0.1.0"
 
 [[package]]
 name = "primitive_data_types"
+version = "0.1.0"
+
+[[package]]
+name = "structs_basics"
 version = "0.1.0"
 
 [[package]]
