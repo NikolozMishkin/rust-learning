@@ -7,6 +7,10 @@ name = "String_and_"
 version = "0.1.0"
 
 [[package]]
+name = "adding_functionality_to_structs"
+version = "0.1.0"
+
+[[package]]
 name = "associativity_and_operator_overloading"
 version = "0.1.0"
 
