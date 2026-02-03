@@ -63,6 +63,10 @@ name = "dereferencing"
 version = "0.1.0"
 
 [[package]]
+name = "enums"
+version = "0.1.0"
+
+[[package]]
 name = "f32_and_f64_in_bits"
 version = "0.1.0"
 
@@ -84,6 +88,10 @@ version = "0.1.0"
 
 [[package]]
 name = "operators_precedence"
+version = "0.1.0"
+
+[[package]]
+name = "option"
 version = "0.1.0"
 
 [[package]]
@@ -139,6 +147,14 @@ name = "practice_on_data_types_4"
 version = "0.1.0"
 
 [[package]]
+name = "practice_on_enums_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_enums_2"
+version = "0.1.0"
+
+[[package]]
 name = "practice_on_functions_1"
 version = "0.1.0"
 
@@ -152,6 +168,14 @@ version = "0.1.0"
 
 [[package]]
 name = "practice_on_functions_4"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_option_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_option_2"
 version = "0.1.0"
 
 [[package]]
@@ -192,6 +216,10 @@ version = "0.1.0"
 
 [[package]]
 name = "primitive_data_types"
+version = "0.1.0"
+
+[[package]]
+name = "result"
 version = "0.1.0"
 
 [[package]]
