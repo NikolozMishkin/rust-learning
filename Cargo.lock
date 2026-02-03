@@ -67,6 +67,10 @@ name = "enums"
 version = "0.1.0"
 
 [[package]]
+name = "extra_hash_maps"
+version = "0.1.0"
+
+[[package]]
 name = "f32_and_f64_in_bits"
 version = "0.1.0"
 
@@ -171,6 +175,14 @@ name = "practice_on_functions_4"
 version = "0.1.0"
 
 [[package]]
+name = "practice_on_hash_maps_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_hash_maps_2"
+version = "0.1.0"
+
+[[package]]
 name = "practice_on_option_1"
 version = "0.1.0"
 
@@ -188,6 +200,14 @@ version = "0.1.0"
 
 [[package]]
 name = "practice_on_ownership_3"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_result_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_result_2"
 version = "0.1.0"
 
 [[package]]
