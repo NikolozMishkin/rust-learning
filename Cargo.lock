@@ -23,6 +23,10 @@ name = "borrowing_in_functions"
 version = "0.1.0"
 
 [[package]]
+name = "casting_of_references_prerequisite_for_method_chaining"
+version = "0.1.0"
+
+[[package]]
 name = "comments_and_more_on_printing"
 version = "0.1.0"
 
@@ -80,6 +84,10 @@ version = "0.1.0"
 
 [[package]]
 name = "max_int_in_rust"
+version = "0.1.0"
+
+[[package]]
+name = "method_chaining_constraints"
 version = "0.1.0"
 
 [[package]]
