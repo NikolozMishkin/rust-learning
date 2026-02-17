@@ -1,3 +1,4 @@
+#[derive(Debug, Clone)]
 struct BankAccount {
     balance: i32,
     owner: String,
@@ -61,10 +62,14 @@ fn main() {
 
     //4. methods that return an owned form of Self
     // Self -> chained with methods accepting any of the three forms of self
-    account
+    let mut account_new_ownership = account
         .change_owner(String::from("new_owner"))
-        .change_owner(String::from("another_owner"))
-        .deposit(100);
+        .change_owner(String::from("another_owner"));
+
+    account_new_ownership.deposit(100);
+    BankAccount::deposit(&mut account_new_ownership, 100);
+
+    println!("account {:?}", account_new_ownership);
     // println!("account {:?}", account);
     // A() . B() (The output for method A () conforms to the input of B())
 }
