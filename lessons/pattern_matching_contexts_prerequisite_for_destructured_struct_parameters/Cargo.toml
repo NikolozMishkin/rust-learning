@@ -1,0 +1,10 @@
+[package]
+name = "pattern_matching_contexts_prerequisite_for_destructured_struct_parameters"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

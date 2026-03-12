@@ -67,6 +67,10 @@ name = "dereferencing"
 version = "0.1.0"
 
 [[package]]
+name = "destructured_struct_parameters"
+version = "0.1.0"
+
+[[package]]
 name = "enums"
 version = "0.1.0"
 
@@ -116,6 +120,10 @@ version = "0.1.0"
 
 [[package]]
 name = "ownership_in_functions"
+version = "0.1.0"
+
+[[package]]
+name = "pattern_matching_contexts_prerequisite_for_destructured_struct_parameters"
 version = "0.1.0"
 
 [[package]]
