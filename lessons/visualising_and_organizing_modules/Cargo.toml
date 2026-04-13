@@ -1,0 +1,13 @@
+[package]
+name = "visualising_and_organizing_modules"
+version = "0.1.0"
+description = "Online store library"
+license = "MIT"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+array_tool = "1.0.3"
+
+[lints]
+workspace = true

@@ -11,6 +11,12 @@ name = "adding_functionality_to_structs"
 version = "0.1.0"
 
 [[package]]
+name = "array_tool"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f8cb5d814eb646a863c4f24978cff2880c4be96ad8cde2c0f0678732902e271"
+
+[[package]]
 name = "associativity_and_operator_overloading"
 version = "0.1.0"
 
@@ -24,6 +30,10 @@ version = "0.1.0"
 
 [[package]]
 name = "casting_of_references_prerequisite_for_method_chaining"
+version = "0.1.0"
+
+[[package]]
+name = "code_organization"
 version = "0.1.0"
 
 [[package]]
@@ -92,6 +102,10 @@ version = "0.1.0"
 
 [[package]]
 name = "method_chaining_constraints"
+version = "0.1.0"
+
+[[package]]
+name = "module_basics"
 version = "0.1.0"
 
 [[package]]
@@ -199,6 +213,14 @@ name = "practice_on_hash_maps_2"
 version = "0.1.0"
 
 [[package]]
+name = "practice_on_modules_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_modules_2"
+version = "0.1.0"
+
+[[package]]
 name = "practice_on_option_1"
 version = "0.1.0"
 
@@ -216,6 +238,18 @@ version = "0.1.0"
 
 [[package]]
 name = "practice_on_ownership_3"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_re-exporting_and_privacy_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_re-exporting_and_privacy_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_re-exporting_and_privacy_3"
 version = "0.1.0"
 
 [[package]]
@@ -263,9 +297,24 @@ name = "structs_basics"
 version = "0.1.0"
 
 [[package]]
+name = "unit_tests_basics"
+version = "0.1.0"
+
+[[package]]
 name = "variable_conventions__and_statics"
 version = "0.1.0"
 
 [[package]]
 name = "variables"
 version = "0.1.0"
+
+[[package]]
+name = "visibility_specifiers"
+version = "0.1.0"
+
+[[package]]
+name = "visualising_and_organizing_modules"
+version = "0.1.0"
+dependencies = [
+ "array_tool",
+]
