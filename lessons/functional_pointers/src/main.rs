@@ -42,4 +42,14 @@ fn main() {
             validate_user_advance
         )
     );
+    // println!(
+    //     "User validity {}",
+    //     is_valid_user(
+    //         &person_1.name,
+    //         banned_user,
+    //         person_1.age,
+    //         validate_user_simple,
+    //         validate_user_advance
+    //     )
+    // );
 }
