@@ -32,6 +32,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f8cb5d814eb646a863c4f24978cff2880c4be96ad8cde2c0f0678732902e271"
 
 [[package]]
+name = "associated_types_in_traits"
+version = "0.1.0"
+
+[[package]]
 name = "associativity_and_operator_overloading"
 version = "0.1.0"
 
@@ -89,6 +93,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
+name = "choosing_associated_vs_generic_type"
+version = "0.1.0"
+
+[[package]]
 name = "ciborium"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -135,6 +143,10 @@ checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
 dependencies = [
  "os_str_bytes",
 ]
+
+[[package]]
+name = "closures"
+version = "0.1.0"
 
 [[package]]
 name = "code_organization"
@@ -248,6 +260,10 @@ name = "dereferencing"
 version = "0.1.0"
 
 [[package]]
+name = "derived_traits_and_marker_traits"
+version = "0.1.0"
+
+[[package]]
 name = "destructured_struct_parameters"
 version = "0.1.0"
 
@@ -274,6 +290,10 @@ version = "0.1.0"
 
 [[package]]
 name = "f32_and_f64_in_bits"
+version = "0.1.0"
+
+[[package]]
+name = "functional_pointers"
 version = "0.1.0"
 
 [[package]]
@@ -435,6 +455,22 @@ name = "pattern_matching_contexts_prerequisite_for_destructured_struct_parameter
 version = "0.1.0"
 
 [[package]]
+name = "plactice_on_closures_1"
+version = "0.1.0"
+
+[[package]]
+name = "plactice_on_closures_2"
+version = "0.1.0"
+
+[[package]]
+name = "plactice_on_closures_3"
+version = "0.1.0"
+
+[[package]]
+name = "plactice_on_closures_4"
+version = "0.1.0"
+
+[[package]]
 name = "plotters"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -461,6 +497,14 @@ checksum = "51bae2ac328883f7acdfea3d66a7c35751187f870bc81f94563733a154d7a670"
 dependencies = [
  "plotters-backend",
 ]
+
+[[package]]
+name = "practice_on_associated_types_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_associated_types_2"
+version = "0.1.0"
 
 [[package]]
 name = "practice_on_borrowing_1"
