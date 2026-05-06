@@ -10,4 +10,5 @@ fn main() {
     let op_2 = Operation::Multiplication(3.5, 2.0);
     let op_3 = Operation::Subtraction(3.5, 2.0);
     let op_4 = Operation::Division(2, 3);
+    let op_5 = Operation::Division("", "3");
 }

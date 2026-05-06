@@ -34,7 +34,7 @@ fn some_fn() {}
 
 #[cfg(test)]
 mod tests {
-    use std::arch::x86_64::_mm_sha1nexte_epu32;
+    // use std::arch::x86_64::_mm_sha1nexte_epu32;
 
     use super::*;
 
