@@ -153,6 +153,10 @@ name = "code_organization"
 version = "0.1.0"
 
 [[package]]
+name = "combinators"
+version = "0.1.0"
+
+[[package]]
 name = "comments_and_more_on_printing"
 version = "0.1.0"
 
@@ -341,6 +345,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "intoIter"
+version = "0.1.0"
+
+[[package]]
+name = "iterating_over_collections"
+version = "0.1.0"
+
+[[package]]
+name = "iterators"
+version = "0.1.0"
+
+[[package]]
 name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -468,6 +484,26 @@ version = "0.1.0"
 
 [[package]]
 name = "plactice_on_closures_4"
+version = "0.1.0"
+
+[[package]]
+name = "plactice_on_functional_pointers_1"
+version = "0.1.0"
+
+[[package]]
+name = "plactice_on_functional_pointers_2"
+version = "0.1.0"
+
+[[package]]
+name = "plactice_on_iterators_and_intoIter_1"
+version = "0.1.0"
+
+[[package]]
+name = "plactice_on_iterators_and_intoIter_2"
+version = "0.1.0"
+
+[[package]]
+name = "plactice_on_iterators_and_intoIter_3"
 version = "0.1.0"
 
 [[package]]
