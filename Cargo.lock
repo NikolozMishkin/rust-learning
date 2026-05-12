@@ -293,6 +293,10 @@ name = "extra_hash_maps"
 version = "0.1.0"
 
 [[package]]
+name = "extra_iterating_through_option"
+version = "0.1.0"
+
+[[package]]
 name = "f32_and_f64_in_bits"
 version = "0.1.0"
 
@@ -533,6 +537,14 @@ checksum = "51bae2ac328883f7acdfea3d66a7c35751187f870bc81f94563733a154d7a670"
 dependencies = [
  "plotters-backend",
 ]
+
+[[package]]
+name = "practice_for_iterating_over_collections_and_combinators"
+version = "0.1.0"
+
+[[package]]
+name = "practice_for_iterating_over_collections_and_combinators_2"
+version = "0.1.0"
 
 [[package]]
 name = "practice_on_associated_types_1"
