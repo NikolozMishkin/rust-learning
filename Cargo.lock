@@ -71,6 +71,14 @@ name = "borrowing_in_functions"
 version = "0.1.0"
 
 [[package]]
+name = "box_pointer_usecases"
+version = "0.1.0"
+
+[[package]]
+name = "box_smart_pointer"
+version = "0.1.0"
+
+[[package]]
 name = "bumpalo"
 version = "3.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -576,6 +584,22 @@ version = "0.1.0"
 
 [[package]]
 name = "practice_on_borrowing_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_box_smart_pointer_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_box_smart_pointer_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_box_smart_pointer_3"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_box_smart_pointer_4"
 version = "0.1.0"
 
 [[package]]
