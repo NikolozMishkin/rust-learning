@@ -731,6 +731,14 @@ name = "practice_on_ownership_3"
 version = "0.1.0"
 
 [[package]]
+name = "practice_on_rc_smart_pointer_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_rc_smart_pointer_2"
+version = "0.1.0"
+
+[[package]]
 name = "practice_on_re-exporting_and_privacy_1"
 version = "0.1.0"
 
@@ -743,11 +751,31 @@ name = "practice_on_re-exporting_and_privacy_3"
 version = "0.1.0"
 
 [[package]]
+name = "practice_on_refcell_smart_pointer_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_refcell_smart_pointer_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_refcell_smart_pointer_3"
+version = "0.1.0"
+
+[[package]]
 name = "practice_on_result_1"
 version = "0.1.0"
 
 [[package]]
 name = "practice_on_result_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_single_linked_list_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_single_linked_list_2"
 version = "0.1.0"
 
 [[package]]
@@ -869,6 +897,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rc_smart_pointer"
+version = "0.1.0"
+
+[[package]]
+name = "ref_cell_exmple"
+version = "0.1.0"
+
+[[package]]
+name = "refcell_smart_pointer"
+version = "0.1.0"
+
+[[package]]
 name = "regex"
 version = "1.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -958,6 +998,14 @@ dependencies = [
  "serde_core",
  "zmij",
 ]
+
+[[package]]
+name = "single_linked_list_part_1"
+version = "0.1.0"
+
+[[package]]
+name = "single_linked_list_part_2"
+version = "0.1.0"
 
 [[package]]
 name = "structs_basics"
