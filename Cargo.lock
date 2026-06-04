@@ -284,6 +284,10 @@ name = "destructured_struct_parameters"
 version = "0.1.0"
 
 [[package]]
+name = "doubly_linked_list_part_1"
+version = "0.1.0"
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -632,6 +636,18 @@ version = "0.1.0"
 
 [[package]]
 name = "practice_on_data_types_4"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_doubly_linked_list_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_doubly_linked_list_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_doubly_linked_list_3"
 version = "0.1.0"
 
 [[package]]
