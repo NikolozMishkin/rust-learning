@@ -101,6 +101,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
+name = "chaining_error_types"
+version = "0.1.0"
+
+[[package]]
 name = "choosing_associated_vs_generic_type"
 version = "0.1.0"
 
@@ -313,6 +317,10 @@ name = "extra_iterating_through_option"
 version = "0.1.0"
 
 [[package]]
+name = "extra_reference_cycle_creating_memory_leakage"
+version = "0.1.0"
+
+[[package]]
 name = "f32_and_f64_in_bits"
 version = "0.1.0"
 
@@ -441,6 +449,10 @@ version = "0.1.0"
 
 [[package]]
 name = "module_basics"
+version = "0.1.0"
+
+[[package]]
+name = "multiple_error_types"
 version = "0.1.0"
 
 [[package]]
@@ -884,6 +896,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "propagating_errors"
+version = "0.1.0"
+
+[[package]]
 name = "quote"
 version = "1.0.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -955,6 +971,10 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "result"
+version = "0.1.0"
+
+[[package]]
+name = "rust_error_handling_approach"
 version = "0.1.0"
 
 [[package]]
