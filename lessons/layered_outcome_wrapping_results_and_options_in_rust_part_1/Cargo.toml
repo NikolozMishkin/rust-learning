@@ -1,0 +1,12 @@
+[package]
+name = "layered_outcome_wrapping_results_and_options_in_rust_part_1"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+rand = "0.10.1"
+
+
+[lints]
+workspace = true

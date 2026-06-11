@@ -20,3 +20,6 @@ name = "opentelemetry_gcloud_monitoring_exporter"
 
 [lib]
 doctest = false
+
+[dependencies]
+rand = "0.10.1"
