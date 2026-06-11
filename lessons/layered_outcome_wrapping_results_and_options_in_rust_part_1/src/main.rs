@@ -4,7 +4,7 @@
 //                   -> Err(e)          for failure.
 
 // Option<Result<T, E>>
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 struct Product {
     id: u32,
