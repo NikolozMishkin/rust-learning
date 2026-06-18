@@ -91,6 +91,10 @@ name = "box_smart_pointer"
 version = "0.1.0"
 
 [[package]]
+name = "builder_pattern"
+version = "0.1.0"
+
+[[package]]
 name = "bumpalo"
 version = "3.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1214,6 +1218,10 @@ dependencies = [
  "serde_core",
  "zmij",
 ]
+
+[[package]]
+name = "simplyfying_structs"
+version = "0.1.0"
 
 [[package]]
 name = "single_linked_list_part_1"
