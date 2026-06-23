@@ -1,0 +1,11 @@
+[package]
+name = "sized_and_optionaly_sized_traits"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+negative-impl = "0.1.4"
+
+[lints]
+workspace = true

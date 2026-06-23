@@ -1,0 +1,10 @@
+[package]
+name = "zero_sized_unit_type"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

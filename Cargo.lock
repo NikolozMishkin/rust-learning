@@ -598,6 +598,17 @@ name = "multiple_error_types"
 version = "0.1.0"
 
 [[package]]
+name = "negative-impl"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "395480ec3f71f1c0c80ea45ec92c0efcd379272ace464adfba89c089c69ed549"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -635,6 +646,10 @@ version = "0.1.0"
 
 [[package]]
 name = "option"
+version = "0.1.0"
+
+[[package]]
+name = "optionaly_sized_and_generic_parameters"
 version = "0.1.0"
 
 [[package]]
@@ -1119,6 +1134,10 @@ name = "refcell_smart_pointer"
 version = "0.1.0"
 
 [[package]]
+name = "references_to_unsized_types"
+version = "0.1.0"
+
+[[package]]
 name = "regex"
 version = "1.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1232,6 +1251,17 @@ name = "single_linked_list_part_2"
 version = "0.1.0"
 
 [[package]]
+name = "sized_and_optionaly_sized_traits"
+version = "0.1.0"
+dependencies = [
+ "negative-impl",
+]
+
+[[package]]
+name = "sized_and_unsized_types"
+version = "0.1.0"
+
+[[package]]
 name = "structs_basics"
 version = "0.1.0"
 
@@ -1308,6 +1338,10 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "unit_tests_basics"
+version = "0.1.0"
+
+[[package]]
+name = "unsized_coercion"
 version = "0.1.0"
 
 [[package]]
@@ -1585,6 +1619,14 @@ dependencies = [
  "unicode-xid",
  "wasmparser",
 ]
+
+[[package]]
+name = "zero_sized_never_type"
+version = "0.1.0"
+
+[[package]]
+name = "zero_sized_unit_type"
+version = "0.1.0"
 
 [[package]]
 name = "zerocopy"
