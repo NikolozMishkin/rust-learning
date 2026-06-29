@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<!-- saved from url=(0255)https://032fcf80-f281-4216-8991-2be5be766a72.frame.claudeusercontent.com/_f/1782480102-69f7/?__frame_t=q7ldTqm0lqne6kJ37Ld-aHeV.a9398adb-d7ea-421f-87a2-1e475a74b283.6343df8f-b2a2-46db-9f87-af660368dd98.1782754493&__frame_v=4d64c41f7de960e76ff984b5f765ab30 -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!--<base href="/_f/1782480102-69f7/">--><base href="."><script>(()=>{function F(b){if(window===top)return;if(b.type==="auxclick"&&b.button!==1)return;const j=b.composedPath?b.composedPath():[b.target];let m=null;for(let y=0;y<j.length;y++){const x=j[y];if(x&&x.matches&&x.matches("a[href],area[href]")){m=x;break}}if(!m&&b.target&&b.target.closest){m=b.target.closest("a[href],area[href]")}if(!m)return;const B=m.getAttribute("href");if(!B)return;let q,C;try{q=new URL(B,document.baseURI);C=new URL(document.baseURI).origin}catch{return}if((q.protocol==="http:"||q.protocol==="https:")&&q.origin!==C){b.preventDefault();parent.postMessage({__frame_nav:true,url:q.href},"*")}}addEventListener("click",F,true);addEventListener("auxclick",F,true);var D={};function z(b){if(window===top)return;const j=Date.now();if(j-(D[b]||0)<500)return;D[b]=j;parent.postMessage({__frame_engaged:true,kind:b},"*")}addEventListener("scroll",()=>z("scroll"),{capture:true,passive:true});addEventListener("pointermove",()=>z("pointer"),{capture:true,passive:true});addEventListener("click",()=>z("click"),{capture:true,passive:true});})();</script><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Rust Memory Layouts</title>
+<style>
+:root {
+  --ground:       #0B1120;
+  --surface:      #131E30;
+  --surface-2:    #1A2840;
+  --border:       #263450;
+  --text:         #DDE4EF;
+  --muted:        #6B7FA3;
+  --stack-glow:   #F97316;
+  --stack-bg:     #1A1005;
+  --stack-border: #C2601A;
+  --heap-glow:    #38BDF8;
+  --heap-bg:      #031522;
+  --heap-border:  #1E6F99;
+  --ro-glow:      #34D399;
+  --ro-bg:        #031510;
+  --ro-border:    #1A6647;
+  --mono: 'JetBrains Mono','Cascadia Code','Fira Code','Consolas',monospace;
+  --sans: system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--ground);
+  background-image:
+    linear-gradient(rgba(56,189,248,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,189,248,0.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── Hero ─────────────────────────────────────────────── */
+.hero {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 60px 24px 48px;
+  border-bottom: 1px solid var(--border);
+}
+.hero-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.hero-title {
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.hero-title .rust { color: var(--stack-glow); }
+.hero-title .dim  { color: var(--muted); font-weight: 400; }
+.hero-sub {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 560px;
+}
+.legend {
+  display: flex;
+  gap: 20px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.legend-dot.stack  { background: var(--stack-glow); }
+.legend-dot.heap   { background: var(--heap-glow); }
+.legend-dot.rodata { background: var(--ro-glow); }
+
+/* ── Page wrapper ─────────────────────────────────────── */
+.page { max-width: 900px; margin: 0 auto; padding: 0 24px 80px; }
+
+/* ── Section headers ──────────────────────────────────── */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 40px 0 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+.section-head h2 {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ── Type card ────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.type-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #F1F5F9;
+  letter-spacing: 0.01em;
+}
+.type-size-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--ground);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+.card-note {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 6px 16px 10px;
+  font-style: italic;
+}
+
+/* ── Memory layout area ───────────────────────────────── */
+.mem-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  padding: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ── Memory box (stack / heap / rodata) ───────────────── */
+.mem-box {
+  border-radius: 6px;
+  min-width: 190px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.mem-box.stack  { border: 1px solid var(--stack-border); background: var(--stack-bg); }
+.mem-box.heap   { border: 1px solid var(--heap-border);  background: var(--heap-bg); }
+.mem-box.rodata { border: 1px solid var(--ro-border);    background: var(--ro-bg); }
+
+.mem-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.mem-box.stack  .mem-box-header { background: rgba(249,115,22,0.12); color: var(--stack-glow); }
+.mem-box.heap   .mem-box-header { background: rgba(56,189,248,0.10); color: var(--heap-glow); }
+.mem-box.rodata .mem-box-header { background: rgba(52,211,153,0.10); color: var(--ro-glow); }
+
+.mem-box-total {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* ── Register rows ────────────────────────────────────── */
+.reg {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid;
+}
+.mem-box.stack  .reg { border-color: rgba(194,96,26,0.3); }
+.mem-box.heap   .reg { border-color: rgba(30,111,153,0.3); }
+.mem-box.rodata .reg { border-color: rgba(26,102,71,0.3); }
+
+.reg-name {
+  flex: 0 0 72px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-right: 1px solid;
+}
+.mem-box.stack  .reg-name { color: var(--stack-glow); border-color: rgba(194,96,26,0.3); }
+.mem-box.heap   .reg-name { color: var(--heap-glow);  border-color: rgba(30,111,153,0.3); }
+.mem-box.rodata .reg-name { color: var(--ro-glow);    border-color: rgba(26,102,71,0.3); }
+
+.reg-content {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.reg-bytes {
+  font-size: 10px;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+/* Wide reg (no name column — for raw data like array elements) */
+.reg.wide .reg-content {
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+/* ── Arrow connector ──────────────────────────────────── */
+.arrow-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 18px;
+  align-self: center;
+  min-width: 32px;
+  margin-top: 26px;
+}
+.arrow-connector span {
+  color: var(--stack-glow);
+  opacity: 0.8;
+  letter-spacing: -2px;
+}
+
+/* ── Compact grid (primitives) ────────────────────────── */
+.compact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.compact-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.compact-card .card-header {
+  padding: 8px 12px;
+}
+.compact-card .type-name { font-size: 14px; }
+.compact-card .mem-layout { padding: 10px 12px; }
+.compact-card .mem-box { min-width: 0; width: 100%; }
+
+/* ── Vtable display ───────────────────────────────────── */
+.vtable-box {
+  border: 1px solid var(--ro-border);
+  background: var(--ro-bg);
+  border-radius: 6px;
+  min-width: 190px;
+  overflow: hidden;
+}
+.vtable-box .mem-box-header {
+  background: rgba(52,211,153,0.10);
+  color: var(--ro-glow);
+  padding: 5px 10px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+}
+.vtable-entry {
+  border-top: 1px solid rgba(26,102,71,0.3);
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  gap: 8px;
+}
+.vtable-fn {
+  font-size: 11px;
+  color: var(--ro-glow);
+  font-weight: 600;
+  flex: 0 0 120px;
+}
+.vtable-sz { font-size: 10px; color: var(--muted); }
+
+.dyn-arrow {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-self: center;
+  padding: 0 8px;
+  margin-top: 26px;
+}
+.dyn-arrow-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.dyn-arrow-row .arr { color: var(--stack-glow); font-size: 14px; }
+
+/* ── Summary table ────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+thead th {
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+tbody tr:hover { background: var(--surface-2); }
+tbody td {
+  padding: 7px 14px;
+  border-bottom: 1px solid rgba(38,52,80,0.6);
+  white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: none; }
+.td-type { font-weight: 600; color: #F1F5F9; }
+.td-stack { color: var(--stack-glow); font-weight: 600; }
+.td-yes-heap { color: var(--heap-glow); }
+.td-yes-ptr  { color: var(--stack-glow); }
+.td-yes-len  { color: #A78BFA; }
+.td-yes-cap  { color: #34D399; }
+.td-no  { color: var(--border); }
+.td-cat { color: var(--muted); font-size: 11px; }
+
+/* ── Struct annotation ─────────────────────────────────── */
+.struct-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  flex: 1;
+}
+.struct-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.struct-field-label {
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 96px;
+  padding-top: 6px;
+}
+
+/* ── ZST note ──────────────────────────────────────────── */
+.zst-badge {
+  display: inline-block;
+  background: rgba(107,127,163,0.15);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 16px 16px 12px;
+}
+
+/* ── Padding note ─────────────────────────────────────── */
+.reg.padding .reg-name { opacity: 0.4; font-style: italic; }
+.reg.padding .reg-content { opacity: 0.4; font-style: italic; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+@media (max-width: 600px) {
+  .mem-layout { flex-direction: column; }
+  .arrow-connector { flex-direction: row; margin-top: 0; }
+  .dyn-arrow { flex-direction: row; gap: 8px; }
+}
+</style>
+
+<!-- HERO -->
+<header class="hero">
+  <p class="hero-eyebrow">64-bit systems · lessons/references_to_unsized_types</p>
+  <h1 class="hero-title">
+    <span class="rust">Rust</span> Memory Layouts<span class="dim">.</span>
+  </h1>
+  <p class="hero-sub">Stack &amp; heap breakdown for every type from <code>main.rs</code> lines 98–129.
+    Sizes, pointers, lengths, and capacities shown per field.</p>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot stack"></div> Stack</div>
+    <div class="legend-item"><div class="legend-dot heap"></div> Heap</div>
+    <div class="legend-item"><div class="legend-dot rodata"></div> .rodata / vtable</div>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- ── PRIMITIVES ──────────────────────────────────── -->
+  <div class="section-head"><h2>Primitive types — stack only</h2></div>
+  <div class="compact-grid">
+
+    <div class="compact-card">
+      <div class="card-header">
+        <span class="type-name">u8</span>
+        <span class="type-size-badge">1 byte</span>
+      </div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">1 B</span></div>
+          <div class="reg"><div class="reg-name">value</div><div class="reg-content"><span>0..=255</span><span class="reg-bytes">1 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header">
+        <span class="type-name">u32</span>
+        <span class="type-size-badge">4 bytes</span>
+      </div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">4 B</span></div>
+          <div class="reg"><div class="reg-name">value</div><div class="reg-content"><span>0..=4B</span><span class="reg-bytes">4 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header">
+        <span class="type-name">u64</span>
+        <span class="type-size-badge">8 bytes</span>
+      </div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">value</div><div class="reg-content"><span>0..=18 EB</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header">
+        <span class="type-name">bool</span>
+        <span class="type-size-badge">1 byte</span>
+      </div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">1 B</span></div>
+          <div class="reg"><div class="reg-name">value</div><div class="reg-content"><span>0x00 / 0x01</span><span class="reg-bytes">1 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── THIN REFERENCES ────────────────────────────── -->
+  <div class="section-head"><h2>Thin references — single pointer, 8 bytes</h2></div>
+  <div class="compact-grid">
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">&amp;u8</span><span class="type-size-badge">8 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ u8</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">&amp;u32</span><span class="type-size-badge">8 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ u32</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">&amp;u64</span><span class="type-size-badge">8 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ u64</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">&amp;bool</span><span class="type-size-badge">8 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ bool</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">&amp;String</span><span class="type-size-badge">8 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ String</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">&amp;Vec&lt;i32&gt;</span><span class="type-size-badge">8 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ Vec</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">&amp;Point</span><span class="type-size-badge">8 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ Point</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">&amp;Circle</span><span class="type-size-badge">8 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ ZST</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── FAT POINTERS (slices) ──────────────────────── -->
+  <div class="section-head"><h2>Fat pointers — slice refs (ptr + len)</h2></div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">&amp;[i32]</span>
+      <span class="type-size-badge">16 bytes</span>
+    </div>
+    <div class="mem-layout">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">16 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>address of first element</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>element count</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Array / Vec buffer</span></div>
+        <div class="reg wide"><div class="reg-content"><span>[ i32 | i32 | i32 | … ]</span><span class="reg-bytes">len × 4 B</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">No cap — slice is a view, it does not own the buffer.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">&amp;[String]</span>
+      <span class="type-size-badge">16 bytes</span>
+    </div>
+    <div class="mem-layout">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">16 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>address of first element</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>element count</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Array / Vec buffer</span></div>
+        <div class="reg wide"><div class="reg-content"><span>[ String(24B) | String(24B) | … ]</span><span class="reg-bytes">len × 24 B</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">Each String in the buffer may itself hold a heap allocation.</p>
+  </div>
+
+  <!-- ── THIN REFS TO FIXED ARRAYS ─────────────────── -->
+  <div class="section-head"><h2>Thin refs to fixed-size arrays — no len field</h2></div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">&amp;[i32; 3]</span>
+      <span class="type-size-badge">8 bytes</span>
+    </div>
+    <div class="mem-layout">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>address of [i32; 3]</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Array (stack / .rodata)</span><span class="mem-box-total">12 B</span></div>
+        <div class="reg wide"><div class="reg-content"><span>10 | 12 | 30</span><span class="reg-bytes">3 × 4 B</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">Thin pointer — length 3 is baked into the type at compile time, no runtime len.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">&amp;[String; 3]</span>
+      <span class="type-size-badge">8 bytes</span>
+    </div>
+    <div class="mem-layout">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>address of [String; 3]</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Array (stack)</span><span class="mem-box-total">72 B</span></div>
+        <div class="reg wide"><div class="reg-content"><span>String(24B) | String(24B) | String(24B)</span><span class="reg-bytes">3 × 24 B</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">Thin pointer — no len field. Each String may further point to heap.</p>
+  </div>
+
+  <!-- ── FIXED ARRAY ────────────────────────────────── -->
+  <div class="section-head"><h2>Fixed-size array — pure stack</h2></div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">[i32; 10]</span>
+      <span class="type-size-badge">40 bytes</span>
+    </div>
+    <div class="mem-layout">
+      <div class="mem-box stack" style="flex:1;min-width:0">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">40 B</span></div>
+        <div class="reg wide"><div class="reg-content"><span>[0] 4B · [1] 4B · [2] 4B · [3] 4B · [4] 4B · [5] 4B · [6] 4B · [7] 4B · [8] 4B · [9] 4B</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">No pointer, no len, no cap — the entire array lives on the stack.</p>
+  </div>
+
+  <!-- ── VEC ────────────────────────────────────────── -->
+  <div class="section-head"><h2>Vec&lt;i32&gt; — owned heap buffer</h2></div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Vec&lt;i32&gt;</span>
+      <span class="type-size-badge">24 bytes stack + heap</span>
+    </div>
+    <div class="mem-layout">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">24 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>heap buffer address</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>elements in use</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">cap</div><div class="reg-content"><span>total allocated slots</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap</span><span class="mem-box-total">cap × 4 B</span></div>
+        <div class="reg wide"><div class="reg-content"><span>1 | 2 | 3 | (unused…)</span></div></div>
+        <div class="reg wide"><div class="reg-content" style="font-size:10px;color:var(--muted)"><span>◄── len ──►◄──── cap - len ────►</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STRING ─────────────────────────────────────── -->
+  <div class="section-head"><h2>String — owned heap buffer (UTF-8)</h2></div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">String</span>
+      <span class="type-size-badge">24 bytes stack + heap</span>
+    </div>
+    <div class="mem-layout">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">24 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>heap buffer address</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>bytes in use</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">cap</div><div class="reg-content"><span>total allocated bytes</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap</span><span class="mem-box-total">cap B</span></div>
+        <div class="reg wide"><div class="reg-content"><span>h · e · l · l · o · (unused…)</span></div></div>
+        <div class="reg wide"><div class="reg-content" style="font-size:10px;color:var(--muted)"><span>UTF-8 bytes, len B used, cap B allocated</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── &str ───────────────────────────────────────── -->
+  <div class="section-head"><h2>&amp;str — fat pointer, no ownership</h2></div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">&amp;str</span>
+      <span class="type-size-badge">16 bytes</span>
+    </div>
+    <div class="mem-layout">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">16 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>UTF-8 byte address</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>byte count</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box rodata">
+        <div class="mem-box-header"><span>.rodata (string literal)</span></div>
+        <div class="reg wide"><div class="reg-content"><span>"hello world" — read-only UTF-8</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">No cap — &amp;str is a read-only view. It does not own the buffer and cannot grow.</p>
+  </div>
+
+  <!-- ── POINT ──────────────────────────────────────── -->
+  <div class="section-head"><h2>Structs — stack only</h2></div>
+  <div class="compact-grid">
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">Point</span><span class="type-size-badge">8 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">x</div><div class="reg-content"><span>i32</span><span class="reg-bytes">4 B</span></div></div>
+          <div class="reg"><div class="reg-name">y</div><div class="reg-content"><span>i32</span><span class="reg-bytes">4 B</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">Circle</span><span class="type-size-badge">0 bytes</span></div>
+      <div class="zst-badge">Zero-Sized Type (ZST)</div>
+      <p class="card-note">No fields — no stack space. &amp;Circle is a thin 8-byte pointer.</p>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">Rectangle</span><span class="type-size-badge">0 bytes</span></div>
+      <div class="zst-badge">Zero-Sized Type (ZST)</div>
+      <p class="card-note">No fields — no stack space. &amp;Rectangle is a thin 8-byte pointer.</p>
+    </div>
+
+  </div>
+
+  <!-- ── &dyn Shape ─────────────────────────────────── -->
+  <div class="section-head"><h2>&amp;dyn Shape — wide pointer with vtable</h2></div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">&amp;dyn Shape</span>
+      <span class="type-size-badge">16 bytes</span>
+    </div>
+    <div class="mem-layout">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">16 B</span></div>
+        <div class="reg"><div class="reg-name">data ptr</div><div class="reg-content"><span>→ concrete object</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">vtable</div><div class="reg-content"><span>→ function table</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="dyn-arrow">
+        <div class="dyn-arrow-row"><span class="arr">──►</span> (Circle or Rectangle instance)</div>
+        <div class="dyn-arrow-row"><span class="arr">──►</span>
+          <div class="vtable-box">
+            <div class="mem-box-header"><span>vtable (.rodata)</span></div>
+            <div class="vtable-entry"><span class="vtable-fn">drop_in_place</span><span class="vtable-sz">8 B</span></div>
+            <div class="vtable-entry"><span class="vtable-fn">size_of</span><span class="vtable-sz">8 B</span></div>
+            <div class="vtable-entry"><span class="vtable-fn">align_of</span><span class="vtable-sz">8 B</span></div>
+            <div class="vtable-entry"><span class="vtable-fn">Shape::print</span><span class="vtable-sz">8 B</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="card-note">The vtable pointer is what separates a trait object from a thin &amp;T — it enables dynamic dispatch at runtime.</p>
+  </div>
+
+  <!-- ── STRUCT1 ────────────────────────────────────── -->
+  <div class="section-head"><h2>Struct1 — mixed fat fields</h2></div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Struct1</span>
+      <span class="type-size-badge">64 bytes stack + heap</span>
+    </div>
+    <div class="mem-layout" style="flex-direction:column;gap:10px">
+
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:11px;color:var(--muted);min-width:88px">my_str: &amp;str</div>
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">16 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ UTF-8 bytes</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>byte count</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+        <div class="arrow-connector" style="margin-top:26px"><span>──►</span></div>
+        <div class="mem-box rodata">
+          <div class="mem-box-header"><span>.rodata</span></div>
+          <div class="reg wide"><div class="reg-content"><span>"hello" (read-only)</span></div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:11px;color:var(--muted);min-width:88px">my_string: String</div>
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">24 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>heap buffer</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>bytes in use</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">cap</div><div class="reg-content"><span>allocated</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+        <div class="arrow-connector" style="margin-top:26px"><span>──►</span></div>
+        <div class="mem-box heap">
+          <div class="mem-box-header"><span>Heap</span></div>
+          <div class="reg wide"><div class="reg-content"><span>UTF-8 bytes</span></div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="font-size:11px;color:var(--muted);min-width:88px">my_vec: Vec&lt;i32&gt;</div>
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">24 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>heap buffer</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>elements in use</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">cap</div><div class="reg-content"><span>allocated slots</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+        <div class="arrow-connector" style="margin-top:26px"><span>──►</span></div>
+        <div class="mem-box heap">
+          <div class="mem-box-header"><span>Heap</span></div>
+          <div class="reg wide"><div class="reg-content"><span>i32 · i32 · …</span></div></div>
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:var(--muted);padding:4px 0">
+        Total stack: 16 + 24 + 24 = <strong style="color:var(--stack-glow)">64 bytes</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STRUCT2 ────────────────────────────────────── -->
+  <div class="section-head"><h2>Struct2 — large stack footprint</h2></div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Struct2</span>
+      <span class="type-size-badge">920 bytes stack + heap</span>
+    </div>
+    <div class="mem-layout" style="flex-direction:column;gap:0;padding:0">
+      <div class="mem-box stack" style="width:100%;border-radius:0;border:none;border-bottom:1px solid var(--stack-border)">
+        <div class="mem-box-header" style="border-radius:0"><span>Stack</span><span class="mem-box-total">920 B total</span></div>
+        <div class="reg"><div class="reg-name">my_u8</div><div class="reg-content"><span>u8 value</span><span class="reg-bytes">1 B</span></div></div>
+        <div class="reg padding"><div class="reg-name">padding</div><div class="reg-content"><span>alignment to 8</span><span class="reg-bytes">7 B</span></div></div>
+        <div class="reg"><div class="reg-name">string×19</div><div class="reg-content"><span>ptr + len + cap each → heap</span><span class="reg-bytes">19 × 24 = 456 B</span></div></div>
+        <div class="reg"><div class="reg-name">vec×19</div><div class="reg-content"><span>ptr + len + cap each → heap</span><span class="reg-bytes">19 × 24 = 456 B</span></div></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);padding:10px 16px">
+        8 (u8 + padding) + 456 (strings) + 456 (vecs) = <strong style="color:var(--stack-glow)">920 bytes</strong> on stack.<br>
+        Each String and Vec independently allocates its own heap buffer.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SUMMARY TABLE ──────────────────────────────── -->
+  <div class="section-head"><h2>Summary</h2></div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Category</th>
+          <th>Stack</th>
+          <th>Heap?</th>
+          <th>ptr</th>
+          <th>len</th>
+          <th>cap</th>
+        </tr>
+      </thead>
+      <tbody id="summary-table">
+  <tr>
+    <td class="td-type">u8</td>
+    <td class="td-cat">Primitive</td>
+    <td class="td-stack">1 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">u32</td>
+    <td class="td-cat">Primitive</td>
+    <td class="td-stack">4 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">u64</td>
+    <td class="td-cat">Primitive</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">bool</td>
+    <td class="td-cat">Primitive</td>
+    <td class="td-stack">1 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;u8</td>
+    <td class="td-cat">Thin ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;u32</td>
+    <td class="td-cat">Thin ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;u64</td>
+    <td class="td-cat">Thin ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;bool</td>
+    <td class="td-cat">Thin ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;Point</td>
+    <td class="td-cat">Thin ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;String</td>
+    <td class="td-cat">Thin ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;Vec<i32></i32></td>
+    <td class="td-cat">Thin ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;Circle</td>
+    <td class="td-cat">Thin ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;Rectangle</td>
+    <td class="td-cat">Thin ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;Struct1</td>
+    <td class="td-cat">Thin ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;Struct2</td>
+    <td class="td-cat">Thin ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;str</td>
+    <td class="td-cat">Fat ptr</td>
+    <td class="td-stack">16 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-yes-len">yes</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;[i32]</td>
+    <td class="td-cat">Fat ptr</td>
+    <td class="td-stack">16 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-yes-len">yes</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;[String]</td>
+    <td class="td-cat">Fat ptr</td>
+    <td class="td-stack">16 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-yes-len">yes</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;[i32; 3]</td>
+    <td class="td-cat">Thin array ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;[String; 3]</td>
+    <td class="td-cat">Thin array ref</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">[i32; 10]</td>
+    <td class="td-cat">Array</td>
+    <td class="td-stack">40 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">Vec<i32></i32></td>
+    <td class="td-cat">Owned buffer</td>
+    <td class="td-stack">24 B</td>
+    <td><span class="td-yes-heap">yes</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-yes-len">yes</span></td>
+    <td><span class="td-yes-cap">yes</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">String</td>
+    <td class="td-cat">Owned buffer</td>
+    <td class="td-stack">24 B</td>
+    <td><span class="td-yes-heap">yes</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-yes-len">yes</span></td>
+    <td><span class="td-yes-cap">yes</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">Point</td>
+    <td class="td-cat">Struct</td>
+    <td class="td-stack">8 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">Circle</td>
+    <td class="td-cat">ZST</td>
+    <td class="td-stack">0 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">Rectangle</td>
+    <td class="td-cat">ZST</td>
+    <td class="td-stack">0 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">&amp;dyn Shape</td>
+    <td class="td-cat">Trait object</td>
+    <td class="td-stack">16 B</td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-yes-ptr">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">Struct1</td>
+    <td class="td-cat">Struct</td>
+    <td class="td-stack">64 B</td>
+    <td><span class="td-yes-heap">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+
+  <tr>
+    <td class="td-type">Struct2</td>
+    <td class="td-cat">Struct</td>
+    <td class="td-stack">920 B</td>
+    <td><span class="td-yes-heap">yes</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+    <td><span class="td-no">—</span></td>
+  </tr>
+</tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const rows = [
+  ['u8',           'Primitive',     '1 B',   false, false, false, false],
+  ['u32',          'Primitive',     '4 B',   false, false, false, false],
+  ['u64',          'Primitive',     '8 B',   false, false, false, false],
+  ['bool',         'Primitive',     '1 B',   false, false, false, false],
+  ['&u8',          'Thin ref',      '8 B',   false, true,  false, false],
+  ['&u32',         'Thin ref',      '8 B',   false, true,  false, false],
+  ['&u64',         'Thin ref',      '8 B',   false, true,  false, false],
+  ['&bool',        'Thin ref',      '8 B',   false, true,  false, false],
+  ['&Point',       'Thin ref',      '8 B',   false, true,  false, false],
+  ['&String',      'Thin ref',      '8 B',   false, true,  false, false],
+  ['&Vec<i32>',    'Thin ref',      '8 B',   false, true,  false, false],
+  ['&Circle',      'Thin ref',      '8 B',   false, true,  false, false],
+  ['&Rectangle',   'Thin ref',      '8 B',   false, true,  false, false],
+  ['&Struct1',     'Thin ref',      '8 B',   false, true,  false, false],
+  ['&Struct2',     'Thin ref',      '8 B',   false, true,  false, false],
+  ['&str',         'Fat ptr',       '16 B',  false, true,  true,  false],
+  ['&[i32]',       'Fat ptr',       '16 B',  false, true,  true,  false],
+  ['&[String]',    'Fat ptr',       '16 B',  false, true,  true,  false],
+  ['&[i32; 3]',    'Thin array ref','8 B',   false, true,  false, false],
+  ['&[String; 3]', 'Thin array ref','8 B',   false, true,  false, false],
+  ['[i32; 10]',    'Array',         '40 B',  false, false, false, false],
+  ['Vec<i32>',     'Owned buffer',  '24 B',  true,  true,  true,  true ],
+  ['String',       'Owned buffer',  '24 B',  true,  true,  true,  true ],
+  ['Point',        'Struct',        '8 B',   false, false, false, false],
+  ['Circle',       'ZST',           '0 B',   false, false, false, false],
+  ['Rectangle',    'ZST',           '0 B',   false, false, false, false],
+  ['&dyn Shape',   'Trait object',  '16 B',  false, true,  false, false],
+  ['Struct1',      'Struct',        '64 B',  true,  false, false, false],
+  ['Struct2',      'Struct',        '920 B', true,  false, false, false],
+];
+
+const yes = (cls) => `<span class="${cls}">yes</span>`;
+const no  = () => `<span class="td-no">—</span>`;
+const tb  = document.getElementById('summary-table');
+tb.innerHTML = rows.map(([type, cat, stack, heap, ptr, len, cap]) => `
+  <tr>
+    <td class="td-type">${type}</td>
+    <td class="td-cat">${cat}</td>
+    <td class="td-stack">${stack}</td>
+    <td>${heap ? yes('td-yes-heap') : no()}</td>
+    <td>${ptr  ? yes('td-yes-ptr')  : no()}</td>
+    <td>${len  ? yes('td-yes-len')  : no()}</td>
+    <td>${cap  ? yes('td-yes-cap')  : no()}</td>
+  </tr>
+`).join('');
+</script>
+
+</body></html>

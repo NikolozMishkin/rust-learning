@@ -1,6 +1,6 @@
 # Memory Layout: Stack & Heap Diagrams
 
-> **Interactive visual version:** [https://claude.ai/code/artifact/032fcf80-f281-4216-8991-2be5be766a72](https://claude.ai/code/artifact/032fcf80-f281-4216-8991-2be5be766a72)
+> **Interactive visual version:** [RustMemoryLayouts](RustMemoryLayout.html)
 
 Types from `main.rs` lines 98–129.
 
