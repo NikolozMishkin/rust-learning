@@ -5,6 +5,10 @@ fn unrecoverable_state() -> ! {
     panic!("This function will never return normally with something valid");
 }
 
+fn fn11() -> i32 {
+    return 0;
+}
+
 // fn function() -> Result<i32, String> {}
 // fn function_1() -> Result<i32, !> {}
 // fn function_2() -> Result<!, String> {}
@@ -21,7 +25,10 @@ fn main() {
 
     let x = match "123".parse::<i32>() {
         Ok(num) => num,
-        Err(_) => panic!(),
+        Err(_) => {
+            println!("Error parsing string to i32");
+            return;
+        }
     };
 
     let x: String = return;

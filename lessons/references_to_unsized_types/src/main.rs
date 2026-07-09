@@ -74,6 +74,18 @@ struct Struct2 {
     my_vec19: Vec<i32>,  //24
 }
 
+struct Struct3 {
+    struct2: Struct2,
+    bool1: bool,
+    bool2: bool,
+}
+struct Struct4 {
+    // bool1: bool,
+    // bool2: bool,
+    bool3: bool,
+    i32_1: i16,
+}
+
 fn main() {
     println!(
         "Size of a reference to sized type: {}", //- 12
@@ -124,6 +136,8 @@ fn main() {
     println!("Size of Struct1 is: {}", size_of::<Struct1>()); //64
     println!("Size of &Struct1 is: {}", size_of::<&Struct1>()); //8
     println!("Size of Struct2 is: {}", size_of::<Struct2>()); //920
+    println!("Size of Struct3 is: {}", size_of::<Struct3>()); //928
+    println!("Size of Struct4 is: {}", size_of::<Struct4>()); //2
     println!("Size of &Struct2 is: {}", size_of::<&Struct2>()); //8
     println!("Size of &Shape is: {}", size_of::<&dyn Shape>()); //16
 }
