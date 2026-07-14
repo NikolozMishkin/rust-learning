@@ -4,6 +4,8 @@ trait Shape {
     fn my_super_fn(&self);
 }
 
+static G: Circle = Circle;
+
 #[derive(Debug)]
 struct Circle;
 
@@ -152,4 +154,6 @@ fn main() {
     println!("Size of &Shape is: {}", size_of::<&dyn Shape>()); //16
     let link: &dyn Shape = &Circle;
     link.my_super_fn();
+    let aa = &5;
+    let bbb = "adsfdsafdsa";
 }
