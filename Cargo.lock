@@ -196,6 +196,10 @@ name = "coercion_basics_deref_coercion"
 version = "0.1.0"
 
 [[package]]
+name = "coercion_in_generics"
+version = "0.1.0"
+
+[[package]]
 name = "coercion_sites"
 version = "0.1.0"
 
@@ -563,6 +567,10 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "learn_pointers"
+version = "0.1.0"
+
+[[package]]
+name = "least_upper_bound_coercion"
 version = "0.1.0"
 
 [[package]]
@@ -1341,7 +1349,15 @@ name = "trait_objects"
 version = "0.1.0"
 
 [[package]]
+name = "trait_objects_coercion"
+version = "0.1.0"
+
+[[package]]
 name = "traits"
+version = "0.1.0"
+
+[[package]]
+name = "transitivity_coercion"
 version = "0.1.0"
 
 [[package]]
