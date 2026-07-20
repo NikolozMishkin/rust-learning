@@ -1,7 +1,10 @@
 use std::mem::size_of;
 trait Shape {
     fn print(&self);
+    fn my_super_fn(&self);
 }
+
+static G: Circle = Circle;
 
 #[derive(Debug)]
 struct Circle;
@@ -13,11 +16,17 @@ impl Shape for Circle {
     fn print(&self) {
         println!("{:?}", self);
     }
+    fn my_super_fn(&self) {
+        println!("This is a super function!");
+    }
 }
 
 impl Shape for Rectangle {
     fn print(&self) {
         println!("{:?}", self);
+    }
+    fn my_super_fn(&self) {
+        println!("This is a super function!");
     }
 }
 
@@ -99,6 +108,8 @@ fn main() {
     let num_1: &[i32; 3] = &[10, 12, 30]; //8
     let num_2: &[i32] = &[10, 12, 30]; //16
 
+    let my_point = Point { x: 10, y: 20 };
+
     let mut sum = 0;
     for num in num_1 {
         sum += num;
@@ -108,6 +119,7 @@ fn main() {
         sum += num;
     }
     println!("Size of &[i32; 3] is: {}", size_of::<&[i32; 3]>()); //8
+    println!("Size of [i32; 3] is: {}", size_of::<[i32; 3]>()); //12
     println!("Size of &[String; 3] is: {}", size_of::<&[String; 3]>()); //8
     println!("Size of &[String] is: {}", size_of::<&[String]>()); //16
     println!("Size of &[i32; 3] is: {}", size_of::<&[i32; 3]>()); //8
@@ -140,4 +152,8 @@ fn main() {
     println!("Size of Struct4 is: {}", size_of::<Struct4>()); //2
     println!("Size of &Struct2 is: {}", size_of::<&Struct2>()); //8
     println!("Size of &Shape is: {}", size_of::<&dyn Shape>()); //16
+    let link: &dyn Shape = &Circle;
+    link.my_super_fn();
+    let aa = &5;
+    let bbb = "adsfdsafdsa";
 }

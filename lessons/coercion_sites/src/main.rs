@@ -24,4 +24,5 @@ fn main() {
     let s = ContainsStr {
         s: &String::from("Some String"),
     };
+    println!("Struct field: {}", s.s);
 }
