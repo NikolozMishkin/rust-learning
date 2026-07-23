@@ -610,6 +610,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
+name = "message_passing_through_channels_part_1"
+version = "0.1.0"
+
+[[package]]
+name = "message_passing_through_channels_part_2"
+version = "0.1.0"
+
+[[package]]
 name = "method_chaining_constraints"
 version = "0.1.0"
 
@@ -692,6 +700,10 @@ version = "0.1.0"
 
 [[package]]
 name = "ownership_in_functions"
+version = "0.1.0"
+
+[[package]]
+name = "ownership_in_threads"
 version = "0.1.0"
 
 [[package]]
@@ -915,6 +927,18 @@ name = "practice_on_lifetimes_4"
 version = "0.1.0"
 
 [[package]]
+name = "practice_on_message_passing_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_message_passing_2"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_message_passing_3"
+version = "0.1.0"
+
+[[package]]
 name = "practice_on_modules_1"
 version = "0.1.0"
 
@@ -940,6 +964,14 @@ version = "0.1.0"
 
 [[package]]
 name = "practice_on_ownership_3"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_ownership_in_threads_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_ownership_in_threads_2"
 version = "0.1.0"
 
 [[package]]
@@ -1016,6 +1048,14 @@ version = "0.1.0"
 
 [[package]]
 name = "practice_on_testing_3"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_threads_1"
+version = "0.1.0"
+
+[[package]]
+name = "practice_on_threads_2"
 version = "0.1.0"
 
 [[package]]
@@ -1333,6 +1373,10 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "thread_basics"
+version = "0.1.0"
 
 [[package]]
 name = "tinytemplate"
