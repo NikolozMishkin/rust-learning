@@ -33,6 +33,16 @@ fn main() {
         }
     };
 
+    let result: &str = if condition {
+        &String::from("Hello") // &String -> &str
+    } else {
+        // &JsonValue -> &String -> &str
+        &JsonValue {
+            raw: r#"{"name": "Alice", "age": 30}"#.to_string(),
+            is_parsed: false,
+        }
+    };
+
     // Example 2: Series of match arms
     let value = 3;
     let a = &A;
