@@ -1,3 +1,5 @@
+#![feature(fn_traits, unboxed_closures)]
+
 struct User {
     name: String,
     age: u8,
@@ -7,6 +9,35 @@ struct User {
 // fn validate_user(name: &str) -> bool {
 //     name.len() != 0
 // }
+
+struct ValidateUserSimplee<'a> {
+    banned_user: &'a String,
+}
+
+impl<'a> ValidateUserSimplee<'a> {
+    fn new(banned_user: &'a String) -> Self {
+        Self { banned_user }
+    }
+}
+
+impl<'a> FnOnce<(&str,)> for ValidateUserSimplee<'a> {
+    type Output = bool;
+    extern "rust-call" fn call_once(self, (name,): (&str,)) -> bool {
+        name.len() != 0 && name != self.banned_user
+    }
+}
+
+impl<'a> FnMut<(&str,)> for ValidateUserSimplee<'a> {
+    extern "rust-call" fn call_mut(&mut self, (name,): (&str,)) -> bool {
+        name.len() != 0 && name != self.banned_user
+    }
+}
+
+impl<'a> Fn<(&str,)> for ValidateUserSimplee<'a> {
+    extern "rust-call" fn call(&self, (name,): (&str,)) -> bool {
+        name.len() != 0 && name != self.banned_user
+    }
+}
 
 fn is_valid_user<V1, V2>(name: &str, age: u8, simple_validator: V1, advance_validator: V2) -> bool
 where
@@ -27,8 +58,14 @@ fn main() {
         let banned_user_name = &banned_user;
         name.len() != 0 && name != banned_user_name
     };
+    validate_user_simple("someone");
     println!("validate_user_simple createad");
     //println!("{banned_user}");
+
+    let validate_user_simple = ValidateUserSimplee::new(&banned_user);
+
+    validate_user_simple.call(("someone",));
+    validate_user_simple("someone");
 
     let validate_user_advance = |age: u8| age >= 30;
     println!(

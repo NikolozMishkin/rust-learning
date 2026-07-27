@@ -26,20 +26,26 @@ fn main() {
 */
 
 // Example 2
+mod complex_while;
+
 use std::{sync::mpsc, thread};
 fn main() {
+    complex_while::demo();
+
     let (tx, rx) = mpsc::channel();
 
     let t = thread::spawn(move || {
         let mut i = "5".to_string();
         println!("Sending value {i}");
+        tx.send(i.clone()).unwrap();
         tx.send(i).unwrap();
     });
 
     // let received_val = rx.recv().unwrap();
-    // println!("Received {received_val}");
+    println!("just run");
 
     // t.join();
+    // println!("just ended");
     let mut received_status = false;
     while received_status != true {
         match rx.try_recv() {

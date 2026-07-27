@@ -19,7 +19,7 @@ fn main() {
         println!("Hello 7 from the thread");
     });
 
-    thread::sleep(Duration::from_millis(1));
+    // thread::sleep(Duration::from_millis(1));
     println!("Hello 1 from the main");
     println!("Hello 2 from the main");
     t.join();
