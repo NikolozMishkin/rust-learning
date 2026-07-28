@@ -1,0 +1,588 @@
+<title>Can one thread read another thread's stack?</title>
+
+<style>
+:root{
+  --paper:#F0F2F5; --paper-2:#E6EAEF; --card:#FAFBFC; --card-2:#F3F5F8;
+  --ink:#161B22; --ink-2:#3E4854; --ink-3:#6C7784;
+  --rule:#C7CFD9; --rule-2:#DCE1E8;
+  --user:#0B6873; --kern:#8C5F10;
+  --user-bg:rgba(11,104,115,.075); --kern-bg:rgba(140,95,16,.075);
+  --user-br:rgba(11,104,115,.34); --kern-br:rgba(140,95,16,.36);
+  --crit:#A02F32;
+  --mono:"SF Mono",ui-monospace,Menlo,"Cascadia Mono","Roboto Mono","DejaVu Sans Mono",monospace;
+  --serif:"Iowan Old Style",Charter,"Palatino Linotype",Palatino,Georgia,ui-serif,serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#0D1117; --paper-2:#12181F; --card:#161D25; --card-2:#1A222B;
+    --ink:#E3E9EF; --ink-2:#ADB7C3; --ink-3:#7B8693;
+    --rule:#2A3340; --rule-2:#1F2733;
+    --user:#4FC3CF; --kern:#DCA745;
+    --user-bg:rgba(79,195,207,.10); --kern-bg:rgba(220,167,69,.10);
+    --user-br:rgba(79,195,207,.32); --kern-br:rgba(220,167,69,.34);
+    --crit:#E4696C;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0D1117; --paper-2:#12181F; --card:#161D25; --card-2:#1A222B;
+  --ink:#E3E9EF; --ink-2:#ADB7C3; --ink-3:#7B8693;
+  --rule:#2A3340; --rule-2:#1F2733;
+  --user:#4FC3CF; --kern:#DCA745;
+  --user-bg:rgba(79,195,207,.10); --kern-bg:rgba(220,167,69,.10);
+  --user-br:rgba(79,195,207,.32); --kern-br:rgba(220,167,69,.34);
+  --crit:#E4696C;
+}
+:root[data-theme="light"]{
+  --paper:#F0F2F5; --paper-2:#E6EAEF; --card:#FAFBFC; --card-2:#F3F5F8;
+  --ink:#161B22; --ink-2:#3E4854; --ink-3:#6C7784;
+  --rule:#C7CFD9; --rule-2:#DCE1E8;
+  --user:#0B6873; --kern:#8C5F10;
+  --user-bg:rgba(11,104,115,.075); --kern-bg:rgba(140,95,16,.075);
+  --user-br:rgba(11,104,115,.34); --kern-br:rgba(140,95,16,.36);
+  --crit:#A02F32;
+}
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--serif);
+  font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;margin:0}
+::selection{background:var(--user-bg)}
+
+/* ── memo header ─────────────────────────────────────── */
+.masthead{border-bottom:1px solid var(--rule);background:var(--paper-2)}
+.masthead .in{max-width:1140px;margin:0 auto;padding:clamp(2.4rem,6vw,4rem) clamp(1rem,4vw,2.5rem) 1.9rem;
+  display:flex;flex-direction:column;gap:1.4rem}
+.eyebrow{font-family:var(--mono);font-size:.665rem;letter-spacing:.19em;text-transform:uppercase;
+  color:var(--kern);display:flex;flex-wrap:wrap;gap:.55rem;align-items:baseline}
+.eyebrow i{font-style:normal;color:var(--ink-3)}
+h1{font-family:var(--mono);font-weight:500;font-size:clamp(1.65rem,4.4vw,2.6rem);line-height:1.14;
+  letter-spacing:-.022em;margin:0;text-wrap:balance}
+h1 em{font-style:normal;color:var(--user)}
+.dek{max-width:62ch;margin:0;color:var(--ink-2);font-size:1.045rem}
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;
+  background:var(--rule-2);border:1px solid var(--rule-2)}
+.meta div{background:var(--paper-2);padding:.62rem .8rem}
+.meta dt{font-family:var(--mono);font-size:.615rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 .2rem}
+.meta dd{font-family:var(--mono);font-size:.79rem;margin:0;color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* ── doc grid ────────────────────────────────────────── */
+.doc{display:grid;
+  grid-template-columns:[rail] 3.1rem [text] minmax(0,68ch) [ext] minmax(0,1fr);
+  column-gap:2.2rem;row-gap:1.3rem;
+  max-width:1140px;margin:0 auto;padding:2.8rem clamp(1rem,4vw,2.5rem) 7rem}
+.doc>*{grid-column:text;margin:0}
+.doc>.wide{grid-column:text / -1}
+.doc>h2{grid-column:rail / -1;display:grid;grid-template-columns:3.1rem 1fr;
+  column-gap:2.2rem;margin-top:2.6rem;align-items:baseline}
+h2{font-family:var(--mono);font-weight:500;font-size:1.16rem;letter-spacing:-.012em;
+  padding-top:1.15rem;border-top:1px solid var(--rule)}
+h2 .s{color:var(--kern);font-size:.83rem;letter-spacing:.02em;text-align:right}
+h2 .t{text-wrap:balance}
+h3{font-family:var(--mono);font-weight:500;font-size:.895rem;letter-spacing:.055em;
+  text-transform:uppercase;color:var(--ink-2);margin:.85rem 0 0}
+p{margin:0}
+a{color:var(--user);text-decoration-thickness:1px;text-underline-offset:2px}
+strong{font-weight:600}
+code{font-family:var(--mono);font-size:.855em;background:var(--card-2);
+  border:1px solid var(--rule-2);border-radius:3px;padding:.06em .3em;white-space:nowrap}
+ul,ol{margin:0;padding-left:1.4rem;display:flex;flex-direction:column;gap:.5rem}
+li::marker{color:var(--ink-3);font-family:var(--mono);font-size:.85em}
+
+/* ── badges ──────────────────────────────────────────── */
+.b{font-family:var(--mono);font-size:.605rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:.14em .42em;border-radius:2px;white-space:nowrap;vertical-align:.09em;
+  border:1px solid transparent;font-variant-numeric:tabular-nums}
+.b-m{color:var(--user);background:var(--user-bg);border-color:var(--user-br)}
+.b-src{color:var(--kern);background:var(--kern-bg);border-color:var(--kern-br)}
+.b-doc{color:var(--ink-2);background:var(--card-2);border-color:var(--rule)}
+.b-est{color:var(--ink-3);background:transparent;border-style:dashed;border-color:var(--rule)}
+
+.legend{display:flex;flex-wrap:wrap;gap:.5rem 1.15rem;padding:.85rem 1rem;
+  background:var(--card);border:1px solid var(--rule-2);border-left:2px solid var(--kern)}
+.legend span{font-family:var(--mono);font-size:.7rem;color:var(--ink-2);
+  display:inline-flex;gap:.42rem;align-items:center}
+
+/* ── callout ─────────────────────────────────────────── */
+.key{background:var(--card);border:1px solid var(--rule-2);border-left:2px solid var(--user);
+  padding:1.05rem 1.2rem;display:flex;flex-direction:column;gap:.6rem}
+.key .h{font-family:var(--mono);font-size:.655rem;letter-spacing:.16em;text-transform:uppercase;color:var(--user)}
+.key p{font-size:1.02rem}
+
+/* ── figures ─────────────────────────────────────────── */
+.fig{display:flex;flex-direction:column;gap:.7rem;margin:.5rem 0}
+.figbody{border:1px solid var(--rule);background:var(--card);padding:clamp(.85rem,2.4vw,1.5rem);
+  overflow-x:auto}
+.cap{font-family:var(--mono);font-size:.715rem;line-height:1.55;color:var(--ink-3);max-width:74ch}
+.cap b{color:var(--ink-2);font-weight:500;letter-spacing:.06em;text-transform:uppercase;font-size:.665rem}
+
+.lab{font-family:var(--mono);font-size:.615rem;letter-spacing:.145em;text-transform:uppercase;
+  color:var(--ink-3);display:block}
+.lab.k{color:var(--kern)}
+.lab.u{color:var(--user)}
+
+/* nesting diagram */
+.nest{display:flex;flex-direction:column;gap:.85rem;min-width:520px}
+.disk{display:flex;gap:.85rem;align-items:stretch}
+.file{flex:0 0 auto;border:1px dashed var(--rule);background:var(--card-2);padding:.6rem .8rem;
+  display:flex;flex-direction:column;gap:.25rem}
+.file b{font-family:var(--mono);font-size:.78rem;font-weight:500}
+.file span{font-family:var(--mono);font-size:.665rem;color:var(--ink-3);line-height:1.5}
+.xarrow{font-family:var(--mono);font-size:.665rem;letter-spacing:.1em;color:var(--kern);
+  align-self:center;padding:0 .3rem;text-transform:uppercase}
+.hw{border:1px solid var(--rule);padding:.7rem;display:flex;flex-direction:column;gap:.6rem;
+  background:var(--card-2)}
+.kern{border:1px solid var(--kern-br);background:var(--kern-bg);padding:.7rem;
+  display:flex;flex-direction:column;gap:.6rem}
+.procs{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.proc{border:1px solid var(--user-br);background:var(--user-bg);padding:.65rem;
+  display:flex;flex-direction:column;gap:.5rem}
+.proc>.note{font-family:var(--mono);font-size:.645rem;color:var(--ink-2);line-height:1.5}
+.thrs{display:flex;gap:.5rem;flex-wrap:wrap}
+.thr{flex:1 1 96px;border:1px solid var(--rule);background:var(--card);padding:.45rem .5rem;
+  display:flex;flex-direction:column;gap:.16rem;min-width:96px}
+.thr b{font-family:var(--mono);font-size:.7rem;font-weight:500}
+.thr span{font-family:var(--mono);font-size:.605rem;color:var(--ink-3);line-height:1.45}
+
+/* address-space diagram */
+.addr{display:grid;grid-template-columns:1.55fr 1fr;gap:.85rem;min-width:560px}
+.pbox{border:1px solid var(--user-br);background:var(--user-bg);padding:.7rem;
+  display:flex;flex-direction:column;gap:.55rem}
+.pbox.alt{border-color:var(--rule);background:var(--card-2)}
+.priv{display:flex;gap:.5rem}
+.shared{border:1px solid var(--rule);background:var(--card);padding:.55rem .6rem;
+  display:flex;flex-direction:column;gap:.4rem}
+.segs{display:flex;flex-wrap:wrap;gap:.35rem}
+.seg{font-family:var(--mono);font-size:.645rem;padding:.22rem .45rem;border:1px solid var(--rule-2);
+  background:var(--card-2);color:var(--ink-2)}
+.seg.hot{border-color:var(--user-br);color:var(--user);background:var(--user-bg)}
+
+/* process tree */
+.tree{display:flex;flex-direction:column;gap:.55rem;min-width:520px;font-family:var(--mono)}
+.tnode{border:1px solid var(--rule);background:var(--card-2);padding:.52rem .68rem;
+  display:flex;flex-direction:column;gap:.18rem}
+.tnode.prog{border-style:dashed;border-color:var(--rule)}
+.tnode.root{border-color:var(--user-br);background:var(--user-bg)}
+.tnode b{font-size:.78rem;font-weight:500}
+.tnode span{font-size:.645rem;color:var(--ink-3);line-height:1.5}
+.kids{display:flex;flex-direction:column;gap:.4rem;margin-left:1.5rem;padding-left:1rem;
+  border-left:1px solid var(--rule)}
+.kid{display:grid;grid-template-columns:3.5rem 1fr;gap:.75rem;align-items:baseline;
+  border:1px solid var(--rule-2);background:var(--card);padding:.44rem .62rem}
+.kid .n{font-size:.755rem;color:var(--user);text-align:right;font-variant-numeric:tabular-nums}
+.kid .d{font-size:.665rem;color:var(--ink-2);line-height:1.55}
+.kid .d b{color:var(--ink);font-weight:500;font-size:.72rem}
+.kid.out{border-style:dashed}
+.kid.out .n{color:var(--kern)}
+
+/* ── tables ──────────────────────────────────────────── */
+.tw{overflow-x:auto;border:1px solid var(--rule);background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:660px;font-family:var(--mono);font-size:.755rem;
+  font-variant-numeric:tabular-nums}
+caption{caption-side:top;text-align:left;font-family:var(--mono);font-size:.665rem;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--ink-3);padding:.7rem .85rem;border-bottom:1px solid var(--rule-2)}
+th,td{text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--rule-2);vertical-align:top;
+  line-height:1.5}
+thead th{font-weight:500;font-size:.635rem;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-3);background:var(--card-2);position:sticky;top:0;border-bottom:1px solid var(--rule)}
+tbody th{font-weight:500;color:var(--ink);white-space:nowrap}
+tbody tr:last-child td,tbody tr:last-child th{border-bottom:0}
+td em{font-style:normal;color:var(--ink-3)}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.hard{color:var(--crit)}
+
+/* ── terminal blocks ─────────────────────────────────── */
+pre{font-family:var(--mono);font-size:.735rem;line-height:1.62;margin:0;overflow-x:auto;
+  background:var(--card);border:1px solid var(--rule);border-left:2px solid var(--ink-3);
+  padding:.8rem .95rem;color:var(--ink-2)}
+pre b{color:var(--ink);font-weight:500}
+pre i{font-style:normal;color:var(--user)}
+pre u{text-decoration:none;color:var(--kern)}
+pre .c{color:var(--ink-3)}
+
+/* ── ranked list ─────────────────────────────────────── */
+.ranked{list-style:none;padding:0;gap:0;border:1px solid var(--rule);background:var(--card)}
+.ranked li{display:grid;grid-template-columns:2.6rem 1fr;gap:.9rem;padding:.85rem 1rem;
+  border-bottom:1px solid var(--rule-2)}
+.ranked li:last-child{border-bottom:0}
+.ranked .k{font-family:var(--mono);font-size:.7rem;color:var(--kern);letter-spacing:.04em;padding-top:.12rem}
+.ranked .v{display:flex;flex-direction:column;gap:.3rem}
+.ranked .v b{font-family:var(--mono);font-size:.815rem;font-weight:500}
+.ranked .v span{font-size:.955rem;color:var(--ink-2)}
+
+.foot{border-top:1px solid var(--rule);margin-top:1.5rem;padding-top:1.1rem;
+  font-family:var(--mono);font-size:.685rem;color:var(--ink-3);line-height:1.65}
+
+/* ── local additions for this note ───────────────────── */
+.pbox>.note{font-family:var(--mono);font-size:.645rem;color:var(--ink-2);line-height:1.55}
+.priv{flex-wrap:wrap}
+.priv .thr{flex:1 1 84px;min-width:84px}
+
+@media (max-width:900px){
+  .doc{grid-template-columns:minmax(0,1fr);column-gap:0}
+  .doc>*,.doc>.wide{grid-column:1}
+  .doc>h2{grid-column:1;grid-template-columns:1fr;row-gap:.2rem}
+  h2 .s{text-align:left}
+  .procs{grid-template-columns:1fr}
+  .addr{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:focus-visible{outline:2px solid var(--user);outline-offset:2px}
+</style>
+
+<header class="masthead">
+  <div class="in">
+    <div class="eyebrow">Technical walkthrough <i>/</i> rust-learning <i>/</i> §&nbsp;sharing states, part 1</div>
+    <h1>Can one thread read<br>another thread's <em>stack</em>?</h1>
+    <p class="dek">Physically yes, logically no. Threads of one process share a single address space, so a
+      stack is just ordinary memory at an ordinary address — nothing in the hardware stops the read.
+      What stops it is <code>Send</code>, <code>Sync</code> and the <code>'static</code> bound on
+      <code>thread::spawn</code>. This note takes both halves apart, measures the address space, breaks
+      the rule on purpose with a raw pointer, and then shows the one legal way to share a stack frame:
+      <code>thread::scope</code>.</p>
+    <dl class="meta">
+      <div><dt>Verified on</dt><dd>macOS 14.5 · arm64</dd></div>
+      <div><dt>CPU</dt><dd>Apple M3 Max · 16 cores</dd></div>
+      <div><dt>Toolchain</dt><dd>rustc 1.99.0-nightly</dd></div>
+      <div><dt>Date</dt><dd>2026-07-28</dd></div>
+    </dl>
+  </div>
+</header>
+
+<main class="doc">
+
+  <div class="legend wide">
+    <span><span class="b b-m">measured</span> run on this machine</span>
+    <span><span class="b b-src">source</span> read in the std source</span>
+    <span><span class="b b-doc">docs</span> from the official documentation</span>
+    <span><span class="b b-est">estimate</span> platform-dependent, not a guarantee</span>
+  </div>
+
+  <div class="key">
+    <span class="h">The short answer</span>
+    <p>A thread's stack is <strong>not</strong> protected by the hardware. It sits in the same address space
+      as every other thread's stack, at a plain address any thread can dereference. Stacks are private
+      <strong>by a convention the compiler enforces</strong> — the <code>'static</code> bound on
+      <code>thread::spawn</code> — not by the MMU. Break that convention with a raw pointer and the read
+      works; it is simply undefined behaviour the moment the frame dies or the access races.
+      <code>thread::scope</code> is the escape hatch that makes stack sharing legal, because it can prove
+      the frame outlives the threads.</p>
+  </div>
+
+  <h2><span class="s">§ 1</span><span class="t">One address space, several stacks</span></h2>
+
+  <p>A process owns exactly one address space; a thread owns a stack, a register set and its TLS block, and
+    takes <em>everything else</em> from the process. So "the stack of thread 2" is not a separate memory
+    domain — it is a range of pages inside the same page table thread 1 is already using. The kernel
+    allocates it with <code>mmap</code> when the thread is created, and unmaps it when the thread dies.</p>
+
+  <p>That is easy to see rather than assume. The program below prints one address from each region while
+    three spawned threads are all still alive:</p>
+
+  <div class="fig wide">
+    <pre><span class="c">// three threads alive at the same time, each printing a local's address</span>
+<i>static</i>  .rodata     <b>0x102e97b28</b>
+<i>heap</i>    Box::new    <b>0x1486062d0</b>   <span class="c">← one heap, shared by all four threads</span>
+<i>stack</i>   main        <b>0x16cfae60f</b>
+<i>stack</i>   thread 0    <b>0x16d1b6e27</b>   <span class="c">main + 2.03 MiB</span>
+<i>stack</i>   thread 1    <b>0x16d3c2e27</b>   <span class="c">main + 4.08 MiB</span>
+<i>stack</i>   thread 2    <b>0x16d5cee27</b>   <span class="c">main + 6.13 MiB</span></pre>
+    <p class="cap"><b>Fig. 1 — the measurement.</b> <span class="b b-m">measured</span> All six addresses are
+      valid pointers in the same process. The stacks land ~2&nbsp;MiB apart because 2&nbsp;MiB is std's
+      default stack size for a spawned thread — the regions are laid out back to back, each with a guard
+      page. <code>main</code>'s own stack is far larger (~8&nbsp;MiB on macOS); see the
+      <em>OS · process · thread</em> note for where those numbers come from.</p>
+  </div>
+
+  <div class="fig wide">
+    <div class="figbody">
+      <div class="addr">
+        <div class="pbox">
+          <span class="lab u">PROCESS · ONE ADDRESS SPACE · ONE PAGE TABLE</span>
+          <div class="shared">
+            <span class="lab">SHARED BY EVERY THREAD</span>
+            <div class="segs">
+              <span class="seg">.text</span>
+              <span class="seg">.rodata</span>
+              <span class="seg">globals</span>
+              <span class="seg hot">heap</span>
+              <span class="seg">fd table</span>
+            </div>
+          </div>
+          <div class="priv">
+            <div class="thr"><b>stack main</b><span>~8 MiB<br>0x16cf… </span></div>
+            <div class="thr"><b>stack t0</b><span>2 MiB<br>0x16d1…</span></div>
+            <div class="thr"><b>stack t1</b><span>2 MiB<br>0x16d3…</span></div>
+            <div class="thr"><b>stack t2</b><span>2 MiB<br>0x16d5…</span></div>
+          </div>
+          <div class="note">Nothing in the page table marks a stack as belonging to one thread. Every box
+            above is readable and writable from every other box.</div>
+        </div>
+        <div class="pbox alt">
+          <span class="lab">ANOTHER PROCESS · ANOTHER PAGE TABLE</span>
+          <div class="shared">
+            <span class="lab">ITS OWN EVERYTHING</span>
+            <div class="segs">
+              <span class="seg">.text</span>
+              <span class="seg">heap</span>
+              <span class="seg">stack main</span>
+            </div>
+          </div>
+          <div class="note">Here <code>0x16d1b6e27</code> means something completely different, or
+            nothing at all. <strong>This</strong> is where the hardware boundary is — between processes,
+            never between threads.</div>
+        </div>
+      </div>
+    </div>
+    <p class="cap"><b>Fig. 2 — where isolation actually lives.</b> The intuition "a stack is private" comes
+      from process isolation and gets misapplied to threads. Threads have no such boundary; they have a
+      type system instead.</p>
+  </div>
+
+  <h2><span class="s">§ 2</span><span class="t">Doing it anyway: the raw-pointer route</span></h2>
+
+  <p>To prove the point, send the <em>address</em> rather than the reference. A <code>usize</code> is
+    <code>Send</code> and carries no lifetime, so the borrow checker has nothing to object to — the type
+    system has been routed around, deliberately.</p>
+
+  <div class="fig wide">
+    <pre><span class="c">// lessons/sharing_states_part_1/src/main_read_from_stack.rs</span>
+<b>use</b> std::sync::mpsc;
+<b>use</b> std::thread;
+<b>use</b> std::time::Duration;
+
+<b>fn</b> main() {
+    <b>let</b> (tx, rx) = mpsc::channel();
+
+    <b>let</b> t = thread::spawn(<b>move</b> || {
+        <b>let</b> x = 42_i32;                          <span class="c">// on thread 2's stack</span>
+        tx.send(&amp;x <b>as</b> *<b>const</b> i32 <b>as</b> usize).unwrap();  <span class="c">// leak the address as a plain integer</span>
+        thread::sleep(Duration::from_millis(100));
+        println!(<u>"[child]  after parent's write, x = {}"</u>, x);
+    });
+
+    <b>let</b> addr = rx.recv().unwrap();
+    <b>unsafe</b> {
+        <b>let</b> p = addr <b>as</b> *<b>mut</b> i32;
+        println!(<u>"[main]   read  *p = {}"</u>, *p);
+        *p = 999;                                  <span class="c">// and write it, too</span>
+    }
+    t.join().unwrap();
+}</pre>
+    <pre><span class="c">$ rustc -O main_read_from_stack.rs &amp;&amp; ./main_read_from_stack</span>
+<i>[child]</i>  &amp;x = <b>0x16fb2ee24</b>   value = <b>42</b>
+<i>[main]</i>   &amp;y = <b>0x16f9266e4</b>   <span class="c">← main's own stack, 2 MiB away</span>
+<i>[main]</i>   received address <b>0x16fb2ee24</b>
+<i>[main]</i>   read  *p = <b>42</b>              <span class="c">← thread 1 read thread 2's stack</span>
+<i>[main]</i>   wrote *p = <b>999</b>
+<i>[child]</i>  after parent's write, x = <b>999</b>   <span class="c">← and thread 2 observed the change</span></pre>
+    <p class="cap"><b>Fig. 3 — it works.</b> <span class="b b-m">measured</span> Not merely a read: a write
+      from another thread mutated a local variable that the owning thread still considered its own. Note
+      this survived <code>-O</code> — the optimiser happened to keep <code>x</code> in memory. It was under
+      no obligation to.</p>
+  </div>
+
+  <div class="key">
+    <span class="h">What is wrong with it</span>
+    <p>The program prints the "right" answer and is still undefined behaviour on two independent counts.
+      <strong>Aliasing:</strong> <code>x</code> is a local the compiler believes it exclusively owns, so it
+      may keep it in a register, fold it to a constant, or reorder around it — the write through
+      <code>*p</code> is then simply lost. <strong>Data race:</strong> two threads touch the same location
+      with no synchronisation between the write and the child's read; the <code>sleep</code> is a hope, not
+      a happens-before edge. UB does not mean "crashes"; it means the compiler's assumptions and yours have
+      diverged and nothing is owed to you afterwards.</p>
+  </div>
+
+  <h2><span class="s">§ 3</span><span class="t">What the compiler actually forbids</span></h2>
+
+  <p>In safe code the door is shut by one bound in the signature of <code>spawn</code>:</p>
+
+  <div class="fig wide">
+    <pre><span class="c">// library/std/src/thread/mod.rs</span>
+<b>pub fn</b> spawn&lt;F, T&gt;(f: F) -&gt; JoinHandle&lt;T&gt;
+<b>where</b>
+    F: FnOnce() -&gt; T + Send + <b>'static</b>,
+    T: Send + <b>'static</b>,</pre>
+    <p class="cap"><b>Fig. 4 — the whole mechanism.</b> <span class="b b-src">source</span>
+      <code>Send</code> says the closure may cross a thread boundary. <code>'static</code> says it holds no
+      borrow of anything shorter-lived than the program — which is exactly what a reference into a stack
+      frame is. The compiler cannot prove the parent's frame outlives the child, so it refuses.</p>
+  </div>
+
+  <div class="fig wide">
+    <pre><b>fn</b> main() {
+    <b>let</b> x = 5;
+    thread::spawn(|| println!(<u>"{}"</u>, x));   <span class="c">// borrows main's stack</span>
+}</pre>
+    <pre><span class="hard">error[E0373]</span>: closure may outlive the current function, but it borrows `x`,
+             which is owned by the current function
+ --&gt; probe.rs:5:19
+  |
+5 |     thread::spawn(|| println!("{}", x));
+  |                   <span class="hard">^^</span>                - `x` is borrowed here
+  |                   |
+  |                   <b>may outlive borrowed value `x`</b>
+  |
+<i>note</i>: function requires argument type to outlive `<b>'static</b>`
+<i>help</i>: to force the closure to take ownership of `x` … use the `move` keyword</pre>
+    <p class="cap"><b>Fig. 5 — the refusal.</b> <span class="b b-m">measured</span> "May outlive" is the
+      whole argument. Nothing here is about permission or privacy; it is about lifetime. This is the exact
+      bug class that C hands you silently — a pointer to a stack frame that returned.</p>
+  </div>
+
+  <p>So safe code is left with two options, and both avoid the parent's stack entirely: <strong>move</strong>
+    ownership into the closure, or put the data on the heap under shared ownership —
+    <code>Arc&lt;T&gt;</code> for read-only, <code>Arc&lt;Mutex&lt;T&gt;&gt;</code> for mutation. The
+    <code>Mutex</code> in this lesson's <code>main.rs</code> is the second half of that answer: heap
+    placement solves <em>lifetime</em>, the mutex solves <em>simultaneity</em>. Neither is needed for a
+    stack, because a stack cannot be shared in the first place — unless you ask for a scope.</p>
+
+  <h2><span class="s">§ 4</span><span class="t">The legal exception: thread::scope</span></h2>
+
+  <p>Since Rust&nbsp;1.63 there is a way to hand a real stack borrow to another thread. <code>thread::scope</code>
+    cannot return until every thread spawned inside it has been joined — the implementation joins them, and
+    joins them even on unwind. That turns "may outlive" into "provably does not outlive", so the
+    <code>'static</code> bound is dropped and <code>&amp;T</code> into the parent frame becomes legal.</p>
+
+  <div class="fig wide">
+    <pre><b>fn</b> main() {
+    <b>let</b> x = 5;                          <span class="c">// main's stack</span>
+    println!(<u>"[main]  &amp;x = {:p}"</u>, &amp;x);
+
+    thread::scope(|s| {
+        s.spawn(|| println!(<u>"[t1]    x = {} at {:p}"</u>, x, &amp;x));   <span class="c">// no `move`, a real borrow</span>
+        s.spawn(|| println!(<u>"[t2]    x = {} at {:p}"</u>, x, &amp;x));
+    });                                 <span class="c">// implicit join of both threads happens here</span>
+
+    println!(<u>"[main]  x still alive: {}"</u>, x);
+}</pre>
+    <pre><i>[main]</i>  &amp;x = <b>0x16f2a6878</b>
+<i>[t1]</i>    x = 5 at <b>0x16f2a6878</b>   <span class="c">← same address</span>
+<i>[t2]</i>    x = 5 at <b>0x16f2a6878</b>   <span class="c">← same address</span>
+<i>[main]</i>  x still alive: 5</pre>
+    <p class="cap"><b>Fig. 6 — a stack read across threads, in safe code.</b> <span class="b b-m">measured</span>
+      Both children print <em>main's</em> address, not a copy: the borrow is genuine and no heap allocation
+      is involved. This is the answer to the title question in its useful form — yes, via
+      <code>scope</code>, checked at compile time.</p>
+  </div>
+
+  <p>The price is structural, not syntactic: a scoped thread <strong>cannot outlive the scope</strong>. If a
+    thread must keep running after the function returns, or be stored in a struct, or be detached,
+    <code>scope</code> is the wrong tool and the data belongs on the heap. Shared <em>mutation</em> still
+    needs a lock or an atomic — <code>scope</code> relaxes the lifetime rule only; the aliasing rules are
+    untouched, so two <code>&amp;mut</code> to the same local remain rejected.</p>
+
+  <h2><span class="s">§ 5</span><span class="t">Why the unsafe version is not merely "unidiomatic"</span></h2>
+
+  <p>The temptation after §&nbsp;2 is to conclude the raw-pointer trick works and the rules are bureaucracy.
+    So here is the same trick with one change: the address escapes from a function that <em>returns</em>,
+    and the thread keeps running. The frame is dead and its bytes are recycled.</p>
+
+  <div class="fig wide">
+    <pre><b>fn</b> leak_addr(tx: mpsc::Sender&lt;usize&gt;) {
+    <b>let</b> secret = 0xDEADBEEF_u32;
+    tx.send(&amp;secret <b>as</b> *<b>const</b> u32 <b>as</b> usize).unwrap();
+}                                         <span class="c">// frame dies here — address now dangles</span>
+
+<b>let</b> t = thread::spawn(<b>move</b> || {
+    leak_addr(tx);
+    <b>let</b> _junk = [0x41414141_u32; 64];      <span class="c">// reuse the same stack region</span>
+    thread::sleep(Duration::from_millis(200));
+});
+<b>let</b> addr = rx.recv().unwrap();
+<b>unsafe</b> { println!(<u>"[main] 0x{:x} -&gt; 0x{:X}"</u>, addr, *(addr <b>as</b> *<b>const</b> u32)); }</pre>
+    <pre><i>[main]</i> read dead frame at <b>0x16fc8ed14</b> -&gt; <b>0x0</b>
+
+<span class="c">// not 0xDEADBEEF. not 0x41414141. no crash, no warning, no signal.</span></pre>
+    <p class="cap"><b>Fig. 7 — silent garbage.</b> <span class="b b-m">measured</span> The address is still
+      mapped, so there is no segfault to alert anyone; the read simply returns whatever now occupies those
+      bytes. In a longer-lived program that region would hold another frame's live data — which is how a
+      stack-address leak becomes an information-disclosure bug rather than a crash.</p>
+  </div>
+
+  <p>Worth knowing how weak the tooling is here. The §&nbsp;2 program was rebuilt with ThreadSanitizer
+    (<code>-Zsanitizer=thread</code> with <code>-Zbuild-std</code>) and run repeatedly:</p>
+
+  <div class="fig wide">
+    <pre><span class="c">$ RUSTFLAGS="-Zsanitizer=thread" cargo +nightly build -Zbuild-std --target aarch64-apple-darwin</span>
+<span class="c">$ for i in 1 2 3; do ./miritest | grep -c "WARNING: ThreadSanitizer"; done</span>
+<b>0</b>
+<b>0</b>
+<b>0</b></pre>
+    <p class="cap"><b>Fig. 8 — three clean runs of a program that is UB.</b> <span class="b b-m">measured</span>
+      TSan reports races it happens to observe, and the <code>sleep</code> spaced the accesses far enough
+      apart that it saw nothing. Miri would flag the aliasing violation, but it is not installed on this
+      machine, so that claim is untested here. Take the lesson at face value: a green test run is not
+      evidence that cross-stack pointer traffic is sound.</p>
+  </div>
+
+  <h2><span class="s">§ 6</span><span class="t">Summary</span></h2>
+
+  <div class="fig wide">
+    <div class="tw">
+      <table>
+        <caption>Table 1 — the three ways to get data into another thread</caption>
+        <thead>
+          <tr><th>Route</th><th>Where the data lives</th><th>Checked by</th><th>Thread may outlive the parent frame</th><th>Verdict</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>move into <code>spawn</code></th>
+            <td>moved into the child's stack / closure</td>
+            <td>the type system, <code>Send + 'static</code></td>
+            <td>yes</td>
+            <td>the default; nothing is shared, so nothing can race</td>
+          </tr>
+          <tr>
+            <th><code>Arc&lt;T&gt;</code> · <code>Arc&lt;Mutex&lt;T&gt;&gt;</code></th>
+            <td>heap, shared ownership</td>
+            <td><code>Send</code>&nbsp;/&nbsp;<code>Sync</code> + the lock at runtime</td>
+            <td>yes</td>
+            <td>the general answer for shared mutable state</td>
+          </tr>
+          <tr>
+            <th><code>thread::scope</code></th>
+            <td><strong>the parent's stack</strong>, borrowed</td>
+            <td>the borrow checker, no <code>'static</code> needed</td>
+            <td><strong>no</strong> — joined at the end of the scope</td>
+            <td>the only sound way to read another thread's stack</td>
+          </tr>
+          <tr>
+            <th><code>usize</code> + raw pointer</th>
+            <td>the parent's stack, unchecked</td>
+            <td><em>nothing</em></td>
+            <td>yes, and that is the bug</td>
+            <td class="hard">UB: aliasing violation and data race</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cap"><b>Reading the table.</b> The fourth row is not a faster version of the third. It is the
+      third row with the proof deleted.</p>
+  </div>
+
+  <ol class="ranked">
+    <li><span class="k">01</span><span class="v"><b>The hardware does not help</b>
+      <span>Threads share one page table. A stack address from thread 2 is a perfectly valid address in
+        thread 1. Isolation exists between <em>processes</em>; between threads there is only the type
+        system.</span></span></li>
+    <li><span class="k">02</span><span class="v"><b>'static is the wall</b>
+      <span><code>thread::spawn</code> rejects stack borrows because it cannot prove the frame outlives the
+        thread. That is a lifetime argument, not a permission one.</span></span></li>
+    <li><span class="k">03</span><span class="v"><b>scope supplies the missing proof</b>
+      <span>Guaranteed join at the end of the block means the frame provably survives, so safe stack
+        sharing becomes possible — at the cost of the threads not being allowed to escape.</span></span></li>
+    <li><span class="k">04</span><span class="v"><b>Working is not sound</b>
+      <span>The raw-pointer version printed the expected value under <code>-O</code> and produced no
+        sanitizer warning in three runs. It is still UB. This is precisely the class of bug the
+        <code>Send</code>&nbsp;/&nbsp;<code>Sync</code>&nbsp;/&nbsp;<code>'static</code> triad exists to
+        make unrepresentable.</span></span></li>
+  </ol>
+
+  <p class="foot wide">Companion code: <code>lessons/sharing_states_part_1/src/main.rs</code> (Mutex basics,
+    including the self-deadlock on a second <code>lock()</code>) and
+    <code>src/main_read_from_stack.rs</code> (Fig.&nbsp;3). Related note:
+    <em>OS · process · thread — the full picture</em>, §&nbsp;message passing part 1, for stack sizes and
+    the process/thread boundary. All figures produced on the machine described in the masthead; addresses
+    differ per run, the layout does not.</p>
+
+</main>
