@@ -1,0 +1,1046 @@
+<title>OS · process · thread — the full picture</title>
+
+<style>
+:root{
+  --paper:#F0F2F5; --paper-2:#E6EAEF; --card:#FAFBFC; --card-2:#F3F5F8;
+  --ink:#161B22; --ink-2:#3E4854; --ink-3:#6C7784;
+  --rule:#C7CFD9; --rule-2:#DCE1E8;
+  --user:#0B6873; --kern:#8C5F10;
+  --user-bg:rgba(11,104,115,.075); --kern-bg:rgba(140,95,16,.075);
+  --user-br:rgba(11,104,115,.34); --kern-br:rgba(140,95,16,.36);
+  --crit:#A02F32;
+  --mono:"SF Mono",ui-monospace,Menlo,"Cascadia Mono","Roboto Mono","DejaVu Sans Mono",monospace;
+  --serif:"Iowan Old Style",Charter,"Palatino Linotype",Palatino,Georgia,ui-serif,serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#0D1117; --paper-2:#12181F; --card:#161D25; --card-2:#1A222B;
+    --ink:#E3E9EF; --ink-2:#ADB7C3; --ink-3:#7B8693;
+    --rule:#2A3340; --rule-2:#1F2733;
+    --user:#4FC3CF; --kern:#DCA745;
+    --user-bg:rgba(79,195,207,.10); --kern-bg:rgba(220,167,69,.10);
+    --user-br:rgba(79,195,207,.32); --kern-br:rgba(220,167,69,.34);
+    --crit:#E4696C;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0D1117; --paper-2:#12181F; --card:#161D25; --card-2:#1A222B;
+  --ink:#E3E9EF; --ink-2:#ADB7C3; --ink-3:#7B8693;
+  --rule:#2A3340; --rule-2:#1F2733;
+  --user:#4FC3CF; --kern:#DCA745;
+  --user-bg:rgba(79,195,207,.10); --kern-bg:rgba(220,167,69,.10);
+  --user-br:rgba(79,195,207,.32); --kern-br:rgba(220,167,69,.34);
+  --crit:#E4696C;
+}
+:root[data-theme="light"]{
+  --paper:#F0F2F5; --paper-2:#E6EAEF; --card:#FAFBFC; --card-2:#F3F5F8;
+  --ink:#161B22; --ink-2:#3E4854; --ink-3:#6C7784;
+  --rule:#C7CFD9; --rule-2:#DCE1E8;
+  --user:#0B6873; --kern:#8C5F10;
+  --user-bg:rgba(11,104,115,.075); --kern-bg:rgba(140,95,16,.075);
+  --user-br:rgba(11,104,115,.34); --kern-br:rgba(140,95,16,.36);
+  --crit:#A02F32;
+}
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--serif);
+  font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased;margin:0}
+::selection{background:var(--user-bg)}
+
+/* ── memo header ─────────────────────────────────────── */
+.masthead{border-bottom:1px solid var(--rule);background:var(--paper-2)}
+.masthead .in{max-width:1140px;margin:0 auto;padding:clamp(2.4rem,6vw,4rem) clamp(1rem,4vw,2.5rem) 1.9rem;
+  display:flex;flex-direction:column;gap:1.4rem}
+.eyebrow{font-family:var(--mono);font-size:.665rem;letter-spacing:.19em;text-transform:uppercase;
+  color:var(--kern);display:flex;flex-wrap:wrap;gap:.55rem;align-items:baseline}
+.eyebrow i{font-style:normal;color:var(--ink-3)}
+h1{font-family:var(--mono);font-weight:500;font-size:clamp(1.65rem,4.4vw,2.6rem);line-height:1.14;
+  letter-spacing:-.022em;margin:0;text-wrap:balance}
+h1 em{font-style:normal;color:var(--user)}
+.dek{max-width:62ch;margin:0;color:var(--ink-2);font-size:1.045rem}
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;
+  background:var(--rule-2);border:1px solid var(--rule-2)}
+.meta div{background:var(--paper-2);padding:.62rem .8rem}
+.meta dt{font-family:var(--mono);font-size:.615rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-3);margin:0 0 .2rem}
+.meta dd{font-family:var(--mono);font-size:.79rem;margin:0;color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* ── doc grid ────────────────────────────────────────── */
+.doc{display:grid;
+  grid-template-columns:[rail] 3.1rem [text] minmax(0,68ch) [ext] minmax(0,1fr);
+  column-gap:2.2rem;row-gap:1.3rem;
+  max-width:1140px;margin:0 auto;padding:2.8rem clamp(1rem,4vw,2.5rem) 7rem}
+.doc>*{grid-column:text;margin:0}
+.doc>.wide{grid-column:text / -1}
+.doc>h2{grid-column:rail / -1;display:grid;grid-template-columns:3.1rem 1fr;
+  column-gap:2.2rem;margin-top:2.6rem;align-items:baseline}
+h2{font-family:var(--mono);font-weight:500;font-size:1.16rem;letter-spacing:-.012em;
+  padding-top:1.15rem;border-top:1px solid var(--rule)}
+h2 .s{color:var(--kern);font-size:.83rem;letter-spacing:.02em;text-align:right}
+h2 .t{text-wrap:balance}
+h3{font-family:var(--mono);font-weight:500;font-size:.895rem;letter-spacing:.055em;
+  text-transform:uppercase;color:var(--ink-2);margin:.85rem 0 0}
+p{margin:0}
+a{color:var(--user);text-decoration-thickness:1px;text-underline-offset:2px}
+strong{font-weight:600}
+code{font-family:var(--mono);font-size:.855em;background:var(--card-2);
+  border:1px solid var(--rule-2);border-radius:3px;padding:.06em .3em;white-space:nowrap}
+ul,ol{margin:0;padding-left:1.4rem;display:flex;flex-direction:column;gap:.5rem}
+li::marker{color:var(--ink-3);font-family:var(--mono);font-size:.85em}
+
+/* ── badges ──────────────────────────────────────────── */
+.b{font-family:var(--mono);font-size:.605rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:.14em .42em;border-radius:2px;white-space:nowrap;vertical-align:.09em;
+  border:1px solid transparent;font-variant-numeric:tabular-nums}
+.b-m{color:var(--user);background:var(--user-bg);border-color:var(--user-br)}
+.b-src{color:var(--kern);background:var(--kern-bg);border-color:var(--kern-br)}
+.b-doc{color:var(--ink-2);background:var(--card-2);border-color:var(--rule)}
+.b-est{color:var(--ink-3);background:transparent;border-style:dashed;border-color:var(--rule)}
+
+.legend{display:flex;flex-wrap:wrap;gap:.5rem 1.15rem;padding:.85rem 1rem;
+  background:var(--card);border:1px solid var(--rule-2);border-left:2px solid var(--kern)}
+.legend span{font-family:var(--mono);font-size:.7rem;color:var(--ink-2);
+  display:inline-flex;gap:.42rem;align-items:center}
+
+/* ── callout ─────────────────────────────────────────── */
+.key{background:var(--card);border:1px solid var(--rule-2);border-left:2px solid var(--user);
+  padding:1.05rem 1.2rem;display:flex;flex-direction:column;gap:.6rem}
+.key .h{font-family:var(--mono);font-size:.655rem;letter-spacing:.16em;text-transform:uppercase;color:var(--user)}
+.key p{font-size:1.02rem}
+
+/* ── figures ─────────────────────────────────────────── */
+.fig{display:flex;flex-direction:column;gap:.7rem;margin:.5rem 0}
+.figbody{border:1px solid var(--rule);background:var(--card);padding:clamp(.85rem,2.4vw,1.5rem);
+  overflow-x:auto}
+.cap{font-family:var(--mono);font-size:.715rem;line-height:1.55;color:var(--ink-3);max-width:74ch}
+.cap b{color:var(--ink-2);font-weight:500;letter-spacing:.06em;text-transform:uppercase;font-size:.665rem}
+
+.lab{font-family:var(--mono);font-size:.615rem;letter-spacing:.145em;text-transform:uppercase;
+  color:var(--ink-3);display:block}
+.lab.k{color:var(--kern)}
+.lab.u{color:var(--user)}
+
+/* nesting diagram */
+.nest{display:flex;flex-direction:column;gap:.85rem;min-width:520px}
+.disk{display:flex;gap:.85rem;align-items:stretch}
+.file{flex:0 0 auto;border:1px dashed var(--rule);background:var(--card-2);padding:.6rem .8rem;
+  display:flex;flex-direction:column;gap:.25rem}
+.file b{font-family:var(--mono);font-size:.78rem;font-weight:500}
+.file span{font-family:var(--mono);font-size:.665rem;color:var(--ink-3);line-height:1.5}
+.xarrow{font-family:var(--mono);font-size:.665rem;letter-spacing:.1em;color:var(--kern);
+  align-self:center;padding:0 .3rem;text-transform:uppercase}
+.hw{border:1px solid var(--rule);padding:.7rem;display:flex;flex-direction:column;gap:.6rem;
+  background:var(--card-2)}
+.kern{border:1px solid var(--kern-br);background:var(--kern-bg);padding:.7rem;
+  display:flex;flex-direction:column;gap:.6rem}
+.procs{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.proc{border:1px solid var(--user-br);background:var(--user-bg);padding:.65rem;
+  display:flex;flex-direction:column;gap:.5rem}
+.proc>.note{font-family:var(--mono);font-size:.645rem;color:var(--ink-2);line-height:1.5}
+.thrs{display:flex;gap:.5rem;flex-wrap:wrap}
+.thr{flex:1 1 96px;border:1px solid var(--rule);background:var(--card);padding:.45rem .5rem;
+  display:flex;flex-direction:column;gap:.16rem;min-width:96px}
+.thr b{font-family:var(--mono);font-size:.7rem;font-weight:500}
+.thr span{font-family:var(--mono);font-size:.605rem;color:var(--ink-3);line-height:1.45}
+
+/* address-space diagram */
+.addr{display:grid;grid-template-columns:1.55fr 1fr;gap:.85rem;min-width:560px}
+.pbox{border:1px solid var(--user-br);background:var(--user-bg);padding:.7rem;
+  display:flex;flex-direction:column;gap:.55rem}
+.pbox.alt{border-color:var(--rule);background:var(--card-2)}
+.priv{display:flex;gap:.5rem}
+.shared{border:1px solid var(--rule);background:var(--card);padding:.55rem .6rem;
+  display:flex;flex-direction:column;gap:.4rem}
+.segs{display:flex;flex-wrap:wrap;gap:.35rem}
+.seg{font-family:var(--mono);font-size:.645rem;padding:.22rem .45rem;border:1px solid var(--rule-2);
+  background:var(--card-2);color:var(--ink-2)}
+.seg.hot{border-color:var(--user-br);color:var(--user);background:var(--user-bg)}
+
+/* process tree */
+.tree{display:flex;flex-direction:column;gap:.55rem;min-width:520px;font-family:var(--mono)}
+.tnode{border:1px solid var(--rule);background:var(--card-2);padding:.52rem .68rem;
+  display:flex;flex-direction:column;gap:.18rem}
+.tnode.prog{border-style:dashed;border-color:var(--rule)}
+.tnode.root{border-color:var(--user-br);background:var(--user-bg)}
+.tnode b{font-size:.78rem;font-weight:500}
+.tnode span{font-size:.645rem;color:var(--ink-3);line-height:1.5}
+.kids{display:flex;flex-direction:column;gap:.4rem;margin-left:1.5rem;padding-left:1rem;
+  border-left:1px solid var(--rule)}
+.kid{display:grid;grid-template-columns:3.5rem 1fr;gap:.75rem;align-items:baseline;
+  border:1px solid var(--rule-2);background:var(--card);padding:.44rem .62rem}
+.kid .n{font-size:.755rem;color:var(--user);text-align:right;font-variant-numeric:tabular-nums}
+.kid .d{font-size:.665rem;color:var(--ink-2);line-height:1.55}
+.kid .d b{color:var(--ink);font-weight:500;font-size:.72rem}
+.kid.out{border-style:dashed}
+.kid.out .n{color:var(--kern)}
+
+/* ── tables ──────────────────────────────────────────── */
+.tw{overflow-x:auto;border:1px solid var(--rule);background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:660px;font-family:var(--mono);font-size:.755rem;
+  font-variant-numeric:tabular-nums}
+caption{caption-side:top;text-align:left;font-family:var(--mono);font-size:.665rem;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--ink-3);padding:.7rem .85rem;border-bottom:1px solid var(--rule-2)}
+th,td{text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--rule-2);vertical-align:top;
+  line-height:1.5}
+thead th{font-weight:500;font-size:.635rem;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--ink-3);background:var(--card-2);position:sticky;top:0;border-bottom:1px solid var(--rule)}
+tbody th{font-weight:500;color:var(--ink);white-space:nowrap}
+tbody tr:last-child td,tbody tr:last-child th{border-bottom:0}
+td em{font-style:normal;color:var(--ink-3)}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.hard{color:var(--crit)}
+
+/* ── terminal blocks ─────────────────────────────────── */
+pre{font-family:var(--mono);font-size:.735rem;line-height:1.62;margin:0;overflow-x:auto;
+  background:var(--card);border:1px solid var(--rule);border-left:2px solid var(--ink-3);
+  padding:.8rem .95rem;color:var(--ink-2)}
+pre b{color:var(--ink);font-weight:500}
+pre i{font-style:normal;color:var(--user)}
+pre u{text-decoration:none;color:var(--kern)}
+pre .c{color:var(--ink-3)}
+
+/* ── ranked list ─────────────────────────────────────── */
+.ranked{list-style:none;padding:0;gap:0;border:1px solid var(--rule);background:var(--card)}
+.ranked li{display:grid;grid-template-columns:2.6rem 1fr;gap:.9rem;padding:.85rem 1rem;
+  border-bottom:1px solid var(--rule-2)}
+.ranked li:last-child{border-bottom:0}
+.ranked .k{font-family:var(--mono);font-size:.7rem;color:var(--kern);letter-spacing:.04em;padding-top:.12rem}
+.ranked .v{display:flex;flex-direction:column;gap:.3rem}
+.ranked .v b{font-family:var(--mono);font-size:.815rem;font-weight:500}
+.ranked .v span{font-size:.955rem;color:var(--ink-2)}
+
+.foot{border-top:1px solid var(--rule);margin-top:1.5rem;padding-top:1.1rem;
+  font-family:var(--mono);font-size:.685rem;color:var(--ink-3);line-height:1.65}
+
+@media (max-width:900px){
+  .doc{grid-template-columns:minmax(0,1fr);column-gap:0}
+  .doc>*,.doc>.wide{grid-column:1}
+  .doc>h2{grid-column:1;grid-template-columns:1fr;row-gap:.2rem}
+  h2 .s{text-align:left}
+  .procs{grid-template-columns:1fr}
+  .addr{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+:focus-visible{outline:2px solid var(--user);outline-offset:2px}
+</style>
+
+<header class="masthead">
+  <div class="in">
+    <div class="eyebrow">Technical walkthrough <i>/</i> rust-learning <i>/</i> §&nbsp;message passing, part 1</div>
+    <h1>Operating system, program,<br>process, <em>thread</em></h1>
+    <p class="dek">What each of them actually is, what is private and what is shared, where stack sizes
+      come from and how many of these things can exist at once — on Linux, macOS, Windows, iOS and
+      Android. §&nbsp;6 is a live case study: why one Chrome program turns into 49 processes and
+      1232 threads, and why the same thing is impossible on iOS.</p>
+    <dl class="meta">
+      <div><dt>Verified on</dt><dd>macOS 14.5 · arm64</dd></div>
+      <div><dt>CPU</dt><dd>Apple M3 Max · 16 cores</dd></div>
+      <div><dt>Toolchain</dt><dd>rustc 1.97.1</dd></div>
+      <div><dt>Date</dt><dd>2026-07-28</dd></div>
+    </dl>
+  </div>
+</header>
+
+<main class="doc">
+
+  <div class="legend wide">
+    <span><span class="b b-m">measured</span> run on this machine</span>
+    <span><span class="b b-src">source</span> read in the std / kernel code</span>
+    <span><span class="b b-doc">docs</span> from the official documentation</span>
+    <span><span class="b b-est">estimate</span> order of magnitude, depends on the build</span>
+  </div>
+
+  <div class="key">
+    <span class="h">The short answer</span>
+    <p>A <strong>program</strong> is a file on disk; it does nothing.
+      A <strong>process</strong> is a program loaded into an address space of its own;
+      it is the unit of <em>isolation</em>.
+      A <strong>thread</strong> is a point of execution inside a process; it is the unit of
+      <em>scheduling</em>.
+      One program usually has one process and anywhere from one to several thousand threads.
+      The kernel does not schedule processes: it schedules threads.</p>
+  </div>
+
+  <h2><span class="s">§ 1</span><span class="t">Four entities and one confusion</span></h2>
+
+  <p>In everyday speech "program", "process" and "thread" are used interchangeably, but they are objects
+    of entirely different natures: one lives in the file system, another in a page table, the third in a
+    scheduler queue. Let us sort them out by asking "what physically exists".</p>
+
+  <div class="fig wide">
+    <div class="tw">
+      <table>
+        <caption>Table 1 — what each entity physically is</caption>
+        <thead>
+          <tr><th>Entity</th><th>Where it exists</th><th>What it holds</th><th>Who creates it</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Program</th>
+            <td>a file on disk<br><em>Mach-O · ELF · PE</em></td>
+            <td>machine code, constants, relocation tables, the stack size in the header</td>
+            <td>the linker<br><em>at build time</em></td>
+          </tr>
+          <tr>
+            <th>Process</th>
+            <td>a kernel structure +<br>an MMU page table</td>
+            <td>address space, heap, file descriptor table, permissions, PID, ≥&nbsp;1&nbsp;thread</td>
+            <td>the kernel, on <code>fork</code>&nbsp;/&nbsp;<code>exec</code><br>or <code>CreateProcess</code></td>
+          </tr>
+          <tr>
+            <th>Thread</th>
+            <td>a kernel structure +<br>an entry in the scheduler</td>
+            <td>its own stack, its own registers, TLS, priority; <strong>everything else it takes from the process</strong></td>
+            <td>the kernel, on <code>pthread_create</code><br>or <code>CreateThread</code></td>
+          </tr>
+          <tr>
+            <th>Task</th>
+            <td>a Linux kernel term</td>
+            <td>the unit of scheduling — <code>task_struct</code>. Every <em>thread</em> has one; a single-threaded process has exactly one. <strong>The address space lives in a separate structure,</strong> <code>mm_struct</code> — see Table&nbsp;2</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cap"><b>The key distinction.</b> A process answers the question "which memory is visible",
+      a thread answers "which code is executing right now". These are orthogonal, which is why one
+      address space happily holds many threads.</p>
+  </div>
+
+  <p>Which leads straight to a consequence that surprises many people: <strong>a process does not
+    execute</strong>. It owns memory and permissions, but the scheduler never sees it. What queues up for
+    a CPU core is threads. A process with no threads is a dead shell, and the kernel frees it
+    immediately.</p>
+
+  <div class="fig wide">
+    <div class="figbody">
+      <div class="nest">
+        <div class="disk">
+          <div class="file">
+            <b>PROGRAM</b>
+            <span>target/debug/lesson<br>Mach-O, 412 KB on disk<br>currently executing: nothing</span>
+          </div>
+          <div class="xarrow">exec() ▸ the kernel creates an address space ▸</div>
+        </div>
+        <div class="hw">
+          <span class="lab">HARDWARE · 16-core CPU · RAM · MMU · disk · network</span>
+          <div class="kern">
+            <span class="lab k">OS KERNEL · ring 0 · the only code with access to the hardware and page tables</span>
+            <div class="procs">
+              <div class="proc">
+                <span class="lab u">PROCESS 9212 · ring 3 · its own address space</span>
+                <div class="note">heap · .text · .rodata · globals · fd table — <b>shared by the threads inside</b></div>
+                <div class="thrs">
+                  <div class="thr"><b>thread main</b><span>7.98 MiB stack<br>registers, TLS</span></div>
+                  <div class="thr"><b>thread t</b><span>2 MiB stack<br>registers, TLS</span></div>
+                </div>
+              </div>
+              <div class="proc">
+                <span class="lab u">PROCESS 9213 · ring 3 · its own address space</span>
+                <div class="note">a completely separate heap; a pointer from process 9212 is meaningless here</div>
+                <div class="thrs">
+                  <div class="thr"><b>thread main</b><span>7.98 MiB stack<br>registers, TLS</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="cap"><b>Fig. 1 — the nesting.</b> Ochre is what the kernel controls and what you cannot
+      change from your program. Teal is user space. The program stands <em>outside</em> this hierarchy: it
+      is the input material, not a part of it. One program can be launched a hundred times — that is a
+      hundred processes, each with its own copy of everything mutable.</p>
+  </div>
+
+  <h3>The special case: Linux</h3>
+
+  <p>It is easy to draw the wrong conclusion here, so let us be blunt: <strong>Linux does have processes,
+    and their address spaces are just as separate as anywhere else.</strong> Isolation is provided by the
+    MMU, the mechanism is identical to macOS and Windows, and the experiment in §&nbsp;2 gives the same
+    result.</p>
+
+  <p>What is peculiar about Linux is something else: it does not store a "process" as a single indivisible
+    object, but decomposed it into independently shareable resources. Scheduling lives in
+    <code>task_struct</code>, the address space in <code>mm_struct</code>, the descriptors in
+    <code>files_struct</code>, and so on. A process and a thread differ only in which of those structures
+    are created anew and which are taken from the parent. It is all controlled by one set of flags to one
+    system call:</p>
+
+  <div class="fig wide">
+    <div class="tw">
+      <table>
+        <caption>Table 2 — process and thread on Linux: one flag apart</caption>
+        <thead>
+          <tr><th>What you call</th><th>What it becomes</th><th><code>mm_struct</code> (address space)</th><th>What you get</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th><code>fork()</code></th>
+            <td><code>clone(SIGCHLD)</code><br><em>without <code>CLONE_VM</code></em></td>
+            <td><strong>a new one</strong>, a copy-on-write copy of the parent's</td>
+            <td><strong>A process.</strong> Its own heap, full isolation, its own TGID</td>
+          </tr>
+          <tr>
+            <th><code>pthread_create()</code></th>
+            <td><code>clone(CLONE_VM | CLONE_THREAD | CLONE_FILES | CLONE_SIGHAND | CLONE_FS | ...)</code></td>
+            <td><strong>the very same one</strong>, the <code>-&gt;mm</code> pointer is copied</td>
+            <td><strong>A thread.</strong> A shared heap, its own TID within the same TGID</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cap"><b>Table 2</b> <span class="b b-doc">docs</span> <code>CLONE_VM</code> is literally the
+      "share the address space or not" switch. The remaining flags pick up the other items from
+      Fig.&nbsp;3: <code>CLONE_FILES</code> the descriptor table, <code>CLONE_SIGHAND</code> the signal
+      handlers, <code>CLONE_FS</code> the cwd. "Process" and "thread" are just two conventional flag sets
+      out of many possible ones; the kernel allows intermediate combinations too, and containers are the
+      same processes plus namespace flags.</p>
+  </div>
+
+  <p>This model leaks out in exactly one place — the numbering — and that is the only real source of the
+    "process or thread" confusion on Linux. In the kernel, "pid" means a <em>task</em>, that is, a
+    thread:</p>
+
+  <ul>
+    <li><code>getpid()</code> returns the <strong>TGID</strong> (thread group id) — what everybody calls
+      the process PID. It is the same for every thread of the process.</li>
+    <li><code>gettid()</code> returns the task's own <code>pid</code> — what everybody calls the TID.
+      It is unique per thread.</li>
+    <li>That is why <code>kernel.pid_max</code> limits <strong>tasks</strong>: 10,000 threads consume
+      numbers just like 10,000 processes do. On macOS those counters are separate
+      (<code>kern.maxproc</code> versus <code>kern.num_taskthreads</code>) — see Tables&nbsp;4 and&nbsp;5.</li>
+  </ul>
+
+  <div class="fig wide">
+    <pre><span class="c"># inspecting a process's threads on Linux</span>
+$ ps                       <span class="c">← one line per PROCESS (thread group)</span>
+$ ps -eLf                  <span class="c">← one line per THREAD; the PID and LWP columns</span>
+$ ls /proc/&lt;pid&gt;/task/     <span class="c">← one directory per thread</span>
+$ grep -E 'Tgid|^Pid|Threads' /proc/&lt;pid&gt;/status
+Tgid:    <b>4212</b>      <span class="c">← this is the "process PID" in the usual sense</span>
+Pid:     <b>4212</b>      <span class="c">← the TID of this task; for the main thread it equals Tgid</span>
+Threads: <b>8</b></pre>
+    <p class="cap"><b>Fig. 2</b> <span class="b b-doc">docs</span> <code>Tgid</code> and <code>Pid</code>
+      coinciding for the main thread is why the difference usually goes unnoticed: in a single-threaded
+      program it is invisible altogether.</p>
+  </div>
+
+  <h2><span class="s">§ 2</span><span class="t">What is private, what is shared</span></h2>
+
+  <p>This is the most practically important table in the whole document: it is what explains why passing a
+    <code>String</code> to another thread costs 24 bytes, while passing it to another process is
+    impossible without serialization.</p>
+
+  <div class="fig wide">
+    <div class="figbody">
+      <div class="addr">
+        <div class="pbox">
+          <span class="lab u">PROCESS 1 — ONE address space</span>
+          <div class="priv">
+            <div class="thr"><b>thread A</b><span>stack · registers · TLS · errno<br><em>private</em></span></div>
+            <div class="thr"><b>thread B</b><span>stack · registers · TLS · errno<br><em>private</em></span></div>
+          </div>
+          <div class="shared">
+            <span class="lab">SHARED BY EVERY THREAD OF THE PROCESS</span>
+            <div class="segs">
+              <span class="seg hot">the heap</span>
+              <span class="seg">.text — code</span>
+              <span class="seg">.rodata — literals</span>
+              <span class="seg">.data / .bss — globals</span>
+              <span class="seg">the fd table</span>
+              <span class="seg">permissions, cwd</span>
+              <span class="seg">signal handlers</span>
+            </div>
+          </div>
+        </div>
+        <div class="pbox alt">
+          <span class="lab">PROCESS 2 — A DIFFERENT address space</span>
+          <div class="priv">
+            <div class="thr"><b>thread main</b><span>its own stack</span></div>
+          </div>
+          <div class="shared">
+            <span class="lab">ITS OWN COPY OF EVERYTHING</span>
+            <div class="segs">
+              <span class="seg">its own heap</span>
+              <span class="seg">its own globals</span>
+              <span class="seg">its own fd table</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="cap"><b>Fig. 3 — the isolation boundaries.</b> The heap is highlighted because it is the only
+      shared source of <em>mutable</em> data of arbitrary size. The stack is private not because it is
+      protected — another thread's stack address is technically reachable inside the process — but because
+      it lives exactly as long as its frame does.</p>
+  </div>
+
+  <h3>The proof</h3>
+
+  <p>Both claims are verifiable in twenty lines. Below is the real output: a <code>Box</code> is moved into
+    another thread and stays at the same address, then the same <code>Box</code> after <code>fork()</code>
+    ends up at the same address but with different contents.</p>
+
+  <div class="fig wide">
+    <pre><span class="c">$ ./heap-demo</span>
+<i>[threads]</i>   main:   address <b>0x12b6062d0</b>, value <b>111</b>
+<i>[threads]</i>   child:  address <b>0x12b6062d0</b> → same one? <b>true</b>, wrote <b>222</b>   <span class="c">← one heap</span>
+<u>[processes]</u> child  pid=9213: <b>0x12b606580</b> = <b>999</b>
+<u>[processes]</u> parent pid=9212: <b>0x12b606580</b> = <b>111</b>   <span class="c">← the child's write is NOT visible</span></pre>
+    <p class="cap"><b>Fig. 4</b> <span class="b b-m">measured</span> Note the second pair: the virtual
+      address is literally identical, yet the data differs. That is copy-on-write — on the write, the kernel
+      slipped a separate physical page under the child process while keeping the same virtual address.
+      A virtual address only means something inside its own address space.</p>
+  </div>
+
+  <h2><span class="s">§ 3</span><span class="t">Stacks: where the sizes come from</span></h2>
+
+  <p>A stack size is not one number but the outcome of three independent decisions made by different
+    parties. They get mixed up constantly, so let us take them layer by layer.</p>
+
+  <ol>
+    <li><strong>The main thread's stack</strong> is created by the <em>kernel</em> when the program is
+      loaded. On Unix the size comes from <code>RLIMIT_STACK</code> (<code>ulimit -s</code>), on Windows
+      from the <code>SizeOfStackReserve</code> field in the PE header — meaning the linker made the call.
+      Program code can no longer change it.</li>
+    <li><strong>A new thread's stack</strong> is sized by default by the <em>language runtime</em>, not the
+      OS. The OS value is almost always overridden.</li>
+    <li><strong>An explicit size</strong> — <code>Builder::stack_size()</code>,
+      <code>pthread_attr_setstacksize</code>, <code>dwStackSize</code>. Rounded up to whole pages.</li>
+  </ol>
+
+  <div class="fig wide">
+    <div class="tw">
+      <table>
+        <caption>Table 3 — stack sizes by platform</caption>
+        <thead>
+          <tr><th>OS</th><th>Main thread</th><th>New thread: OS</th><th>New thread: Rust std</th><th>Where the number comes from</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Linux</th>
+            <td class="num">8 MiB<br><em>= RLIMIT_STACK, grows lazily</em></td>
+            <td class="num">= RLIMIT_STACK (glibc)<br><em>musl: 128 KiB</em></td>
+            <td class="num">2 MiB</td>
+            <td><code>ulimit -s</code> · glibc <code>NPTL</code> <span class="b b-doc">docs</span></td>
+          </tr>
+          <tr>
+            <th>macOS</th>
+            <td class="num">8176 KiB = 7.98 MiB</td>
+            <td class="num">512 KiB</td>
+            <td class="num">2 MiB</td>
+            <td><code>pthread_get_stacksize_np</code> <span class="b b-m">measured</span></td>
+          </tr>
+          <tr>
+            <th>Windows</th>
+            <td class="num">1 MiB reserve<br><em>commit — one page</em></td>
+            <td class="num">= PE reserve<br><em>if dwStackSize = 0</em></td>
+            <td class="num">2 MiB</td>
+            <td>PE <code>SizeOfStackReserve</code> · <code>/STACK</code> <span class="b b-doc">docs</span></td>
+          </tr>
+          <tr>
+            <th>iOS</th>
+            <td class="num">1 MiB<br><em class="hard">cannot be changed</em></td>
+            <td class="num">512 KiB<br><em>min. 16 KiB, multiple of 4 KiB</em></td>
+            <td class="num">2 MiB</td>
+            <td>Apple Threading Programming Guide <span class="b b-doc">docs</span></td>
+          </tr>
+          <tr>
+            <th>Android</th>
+            <td class="num">8 MiB</td>
+            <td class="num">≈ 1 MiB <em>(bionic)</em><br><em>ART Java thread ≈ 1 MiB</em></td>
+            <td class="num">2 MiB</td>
+            <td>bionic <code>pthread_attr</code> <span class="b b-est">estimate</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cap"><b>Table 3.</b> The "Rust std" column being identical everywhere is no accident — it is
+      a single constant in the standard library.</p>
+  </div>
+
+  <h3>Why Rust always uses 2 MiB</h3>
+
+  <p>This is not an operating system value but a decision by the std authors: Apple's 512 KiB and musl's
+    128 KiB were considered too cramped for recursive code and large frames. The constant sits right there
+    in the sources and is the same for Unix and Windows:</p>
+
+  <div class="fig wide">
+    <pre><span class="c">library/std/src/sys/thread/unix.rs:31</span>
+#[cfg(not(any(target_os = "l4re", target_os = "vxworks",
+              target_os = "espidf", target_os = "nuttx")))]
+pub const <b>DEFAULT_MIN_STACK_SIZE</b>: usize = <i>2 * 1024 * 1024</i>;
+
+<span class="c">library/std/src/sys/thread/windows.rs:14</span>
+pub const <b>DEFAULT_MIN_STACK_SIZE</b>: usize = <i>2 * 1024 * 1024</i>;</pre>
+    <p class="cap"><b>Fig. 5</b> <span class="b b-src">source</span> The <code>cfg</code> condition excludes
+      only exotic targets like ESP-IDF — Linux, macOS, iOS, Android, BSD and Windows all land in the 2 MiB
+      branch. The order of precedence:
+      <code>Builder::stack_size()</code> → <code>RUST_MIN_STACK</code> → this constant.</p>
+  </div>
+
+  <div class="fig wide">
+    <pre><span class="c">$ ./stack-probe</span>
+main:             8372224 bytes = 7.98 MiB   <span class="c">← 8176 KiB × 1024, matches ulimit -s</span>
+spawn() default:  2109440 bytes = 2.01 MiB   <span class="c">← 2 MiB + pthread bookkeeping pages</span>
+stack_size(64 KiB): 77824 bytes = 0.07 MiB   <span class="c">← rounded up to whole pages</span>
+
+<span class="c">$ RUST_MIN_STACK=524288 ./stack-probe</span>
+spawn() default:   536576 bytes = <i>0.51 MiB</i>   <span class="c">← the std constant really is overridable</span></pre>
+    <p class="cap"><b>Fig. 6</b> <span class="b b-m">measured</span> The third line of the first run shows
+      that the requested 64 KiB turned into 76 KiB: a stack size is always page-aligned and gets a guard
+      page.</p>
+  </div>
+
+  <div class="key">
+    <span class="h">More important than it looks</span>
+    <p>2 MiB is a <strong>virtual reservation</strong>, not occupied memory. The kernel hands out a range of
+      addresses; physical pages are supplied only on first touch. A thread that made two function calls
+      costs one or two pages — 16–32 KiB on arm64, not 2 MiB. So "12 thousand threads × 2 MiB = 24 GiB" is
+      not a verdict: that much address space is reserved, but not consumed.</p>
+  </div>
+
+  <h2><span class="s">§ 4</span><span class="t">How many threads there can be</span></h2>
+
+  <p>On none of the five operating systems does the answer come from the formula "memory ÷ stack size".
+    Something else always gives out first, and on each OS it is something different.</p>
+
+  <div class="fig wide">
+    <div class="tw">
+      <table>
+        <caption>Table 4 — the limit on threads in one process</caption>
+        <thead>
+          <tr><th>OS</th><th>Practical limit</th><th>What actually caps it</th><th>How to check</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Linux</th>
+            <td class="num">≈ 32,000<br><em>tens of thousands</em></td>
+            <td><code>vm.max_map_count</code> = 65530, and every thread eats 2 mappings (stack + guard) → ≈&nbsp;32k. Plus <code>kernel.threads-max</code> (depends on RAM), <code>kernel.pid_max</code> = 32768, <code>RLIMIT_NPROC</code>, cgroup <code>pids.max</code></td>
+            <td><code>cat /proc/sys/kernel/threads-max</code><br><code>cat /proc/sys/vm/max_map_count</code><br><code>ulimit -u</code> <span class="b b-doc">docs</span></td>
+          </tr>
+          <tr>
+            <th>macOS</th>
+            <td class="num hard">12,287</td>
+            <td><code>kern.num_taskthreads</code> = 12288 minus the main thread. <strong>A hard kernel limit per task</strong>, entirely independent of stack size. The system-wide ceiling is <code>kern.num_threads</code> = 61440</td>
+            <td><code>sysctl kern.num_taskthreads</code> <span class="b b-m">measured</span></td>
+          </tr>
+          <tr>
+            <th>Windows</th>
+            <td class="num">≈ 2,000 <em>(32-bit)</em><br>tens of thousands <em>(64-bit)</em></td>
+            <td>There is no fixed limit. A 32-bit process: 2 GiB of addresses ÷ 1 MiB of stack ≈ 2048. A 64-bit one runs into commit charge and the non-paged kernel pool</td>
+            <td>Task Manager → the "Threads" column<br><code>Get-Process</code> <span class="b b-doc">docs</span></td>
+          </tr>
+          <tr>
+            <th>iOS</th>
+            <td class="num">hundreds <em class="hard">not published</em></td>
+            <td>There is no numeric limit in the documentation. In practice jetsam kills the app over memory long before the kernel limit; the watchdog finishes it off for being unresponsive</td>
+            <td>Xcode → Debug Gauges → Threads <span class="b b-est">estimate</span></td>
+          </tr>
+          <tr>
+            <th>Android</th>
+            <td class="num">thousands</td>
+            <td>The Linux kernel, the same <code>threads-max</code> and <code>max_map_count</code>, but with a per-app cgroup <code>pids.max</code> and the ART heap limit on top. The symptom of hitting it is <code>pthread_create failed: couldn't allocate</code></td>
+            <td><code>cat /proc/&lt;pid&gt;/status | grep Threads</code> <span class="b b-est">estimate</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cap"><b>Table 4.</b> In red — the numbers you cannot work around with settings from inside the
+      app.</p>
+  </div>
+
+  <div class="fig wide">
+    <pre><span class="c">$ ./max-threads     # spawn until it fails, at two different stack sizes</span>
+2 MiB stack (default): created <b>12287</b> threads, then EAGAIN <span class="c">(os error 35)</span>
+64 KiB stack:          created <b>12287</b> threads, then EAGAIN <span class="c">(os error 35)</span>
+
+<span class="c">$ sysctl kern.num_taskthreads kern.num_threads</span>
+kern.num_taskthreads: <b>12288</b>   <span class="c">← per process; 12288 − 1 main = 12287 ✓</span>
+kern.num_threads:     <b>61440</b>   <span class="c">← for the whole system</span></pre>
+    <p class="cap"><b>Fig. 7</b> <span class="b b-m">measured</span> The number <strong>did not change</strong>
+      when the stack was shrunk 32-fold. That is the proof that on macOS the limit is a thread counter in the
+      kernel, not memory. On Linux the same experiment would behave differently: there, shrinking the stack
+      really does raise the ceiling until you hit <code>max_map_count</code>.</p>
+  </div>
+
+  <h3>How many run at the same time</h3>
+
+  <p>A separate question, and one that gets confused with the previous one. You can create 12287, but the
+    number <em>executing</em> at any instant is exactly the number of hardware threads the CPU has. On this
+    machine:</p>
+
+  <div class="fig wide">
+    <pre><span class="c">$ sysctl -n hw.ncpu hw.perflevel0.physicalcpu hw.perflevel1.physicalcpu</span>
+<b>16</b>   <span class="c">← cores in total</span>
+<b>12</b>   <span class="c">← performance</span>
+<b>4</b>    <span class="c">← efficiency</span>
+
+<span class="c">$ ./parallelism</span>
+std::thread::available_parallelism() = Ok(<b>16</b>)   <span class="c">← this is the number to use for a thread pool</span></pre>
+    <p class="cap"><b>Fig. 8</b> <span class="b b-m">measured</span> Anything above 16 does not speed up
+      computation — it only adds context switches. More threads make sense exactly when they <em>wait</em>
+      rather than compute.</p>
+  </div>
+
+  <h2><span class="s">§ 5</span><span class="t">How many processes there can be</span></h2>
+
+  <p>Here the platforms diverge more radically than they do on threads — and the difference is not
+    quantitative but qualitative: on two of the five operating systems an application cannot spawn a process
+    <em>at all</em>.</p>
+
+  <div class="fig wide">
+    <div class="tw">
+      <table>
+        <caption>Table 5 — processes: model and limits</caption>
+        <thead>
+          <tr><th>OS</th><th>Limit</th><th>Spawning model</th><th>Notable detail</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Linux</th>
+            <td class="num"><code>pid_max</code> = 32768<br><em>up to 4,194,304</em></td>
+            <td><code>fork()</code> + <code>exec()</code>, copy-on-write — cheap</td>
+            <td>Isolation is full, as everywhere. But <strong>the number counter is shared</strong>: <code>pid_max</code> limits tasks, and a task is a thread, so 10k threads consume numbers just like 10k processes. This is only about the counter, not about isolation — see Table&nbsp;2</td>
+          </tr>
+          <tr>
+            <th>macOS</th>
+            <td class="num">8000 <em>per user</em><br>12000 <em>per system</em></td>
+            <td><code>fork</code>&nbsp;/&nbsp;<code>posix_spawn</code>; <code>fork</code> is unsafe in a multithreaded program</td>
+            <td><code>kern.maxprocperuid</code> = 8000, <code>kern.maxproc</code> = 12000 <span class="b b-m">measured</span></td>
+          </tr>
+          <tr>
+            <th>Windows</th>
+            <td class="num">no fixed limit<br><em>thousands in practice</em></td>
+            <td><code>CreateProcess</code> only — <strong>there is no fork equivalent</strong>, the image is loaded from scratch</td>
+            <td>A process costs orders of magnitude more than a thread (milliseconds versus microseconds) — hence the culture of thread pools and Job objects instead of processes</td>
+          </tr>
+          <tr>
+            <th>iOS</th>
+            <td class="num hard">1</td>
+            <td><strong>Forbidden by the sandbox.</strong> <code>fork</code>/<code>posix_spawn</code> are unavailable to an App Store app</td>
+            <td>Extensions (share, widget, notification) are separate processes, but the system launches them, not you. Multi-process design as a technique is unavailable</td>
+          </tr>
+          <tr>
+            <th>Android</th>
+            <td class="num">1 <em>by default</em><br><em>more via the manifest</em></td>
+            <td>Zygote: the system forks a preloaded process with ART already initialized and pages shared</td>
+            <td>Additional processes are declared via <code>android:process</code> in the manifest. There is no shared memory between them — only Binder IPC</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cap"><b>Table 5.</b> I did not run a fork bomb to check the limit — the macOS numbers come from
+      <code>sysctl</code>, the rest from documentation.</p>
+  </div>
+
+  <h2><span class="s">§ 6</span><span class="t">Case study: why Chrome is 49 processes</span></h2>
+
+  <p>Two browser windows are open. Activity Monitor shows a dozen rows named
+    <code>Google Chrome</code>, and it is unclear whether those are processes or threads, and why there are
+    so many. The reality is even further from expectations: it is not a dozen rows but
+    <strong>49 processes</strong> and <strong>1232 threads</strong> — the list is simply sorted by memory
+    and truncated, so 11 of the 49 are visible.</p>
+
+  <p>The confusion comes from three independent places, and it helps to separate them before looking at the
+    numbers.</p>
+
+  <div class="fig wide">
+    <div class="tw">
+      <table>
+        <caption>Table 6 — three sources of confusion</caption>
+        <thead><tr><th>It seems like</th><th>In reality</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr>
+            <th>window = process</th>
+            <td>Two windows add <strong>zero</strong> extra processes</td>
+            <td>A window is a window-server object owned by the browser process. Windows, tabs and buttons have nothing to do with §&nbsp;1 — they are UI, not OS entities</td>
+          </tr>
+          <tr>
+            <th>tab = process</th>
+            <td>Not 1:1 in either direction: there can be more tabs than processes, and <strong>one tab can occupy several processes</strong></td>
+            <td>Chrome gives a process per <em>site</em>, not per tab. Five tabs of the same site → one process. But a tab with third-party iframes (ads, embedded videos) → several: every foreign site gets its own process (out-of-process iframes)</td>
+          </tr>
+          <tr>
+            <th>program = process</th>
+            <td>One program <strong>deliberately</strong> launches dozens of processes</td>
+            <td>That is an architectural decision in Chrome, not a leak and not a bug. Exactly what §&nbsp;1 is about: a program is a file on disk, and you can make as many processes out of it as you like</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cap"><b>Table 6.</b> The Activity Monitor column is called "Process Name", and every helper
+      inherits the program name from the bundle — hence the impression that the same application got
+      duplicated. Threads appear in this list as a separate Threads column and <em>do not</em> take part in
+      the rows: every row is a process.</p>
+  </div>
+
+  <h3>The real tree</h3>
+
+  <div class="fig wide">
+    <div class="figbody">
+      <div class="tree">
+        <div class="tnode prog">
+          <b>PROGRAM — Google&nbsp;Chrome.app</b>
+          <span>one bundle on disk, containing one main binary and a framework with the engine</span>
+        </div>
+        <div class="tnode root">
+          <b>PROCESS 78038 · "Google Chrome" · the browser process</b>
+          <span>49 threads · PPID&nbsp;1 (launchd) · owns the UI, both windows, tabs as objects,
+            network coordination and the profile. The only one that spawns the others: 47 of the 49
+            processes are its direct children</span>
+        </div>
+        <div class="kids">
+          <div class="kid">
+            <span class="n">× 42</span>
+            <span class="d"><b>--type=renderer</b><br>26–31 threads each. Blink + V8: one site instance = one process.
+              Extensions and Chrome's internal pages land here too</span>
+          </div>
+          <div class="kid">
+            <span class="n">× 1</span>
+            <span class="d"><b>--type=gpu-process</b><br>21 threads. The only one allowed to talk to the GPU driver</span>
+          </div>
+          <div class="kid">
+            <span class="n">× 4</span>
+            <span class="d"><b>--type=utility</b><br>the network service, storage, audio and so on — each in its own sandbox with its own set of permissions</span>
+          </div>
+          <div class="kid out">
+            <span class="n">× 1</span>
+            <span class="d"><b>crashpad_handler</b><br>PPID&nbsp;1, not 78038 — deliberately <em>not</em> a child of the browser, so that it outlives a crash and can write the report</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="cap"><b>Fig. 9 — Chrome's process tree</b> <span class="b b-m">measured</span>
+      In total 1&nbsp;program → 49&nbsp;processes → 1232&nbsp;threads. Note the last row: crashpad is moved
+      out from under the browser, because a dead parent cannot write the report of its own death.</p>
+  </div>
+
+  <div class="fig wide">
+    <pre><span class="c"># counting it yourself, without Activity Monitor:</span>
+$ ps -axo pid,ppid,command | grep -i "Google Chrome" | grep -v grep &gt; /tmp/ch.txt
+$ grep -oE '\-\-type=[a-z-]+' /tmp/ch.txt | sort | uniq -c | sort -rn
+  <b>42</b> --type=renderer
+   <b>4</b> --type=utility
+   <b>1</b> --type=gpu-process
+
+$ awk '{print $2}' /tmp/ch.txt | sort | uniq -c | sort -rn | head -2
+  <b>47</b> 78038      <span class="c">← 47 processes share one parent: the browser process</span>
+   <b>2</b> 1          <span class="c">← the browser process + crashpad, both under launchd</span>
+
+$ awk '{print $1}' /tmp/ch.txt | while read p; do ps -M "$p" | tail -n +2 | wc -l; done \
+    | awk '{s+=$1} END {print s}'
+  <b>1232</b>          <span class="c">← threads in total</span></pre>
+    <p class="cap"><b>Fig. 10</b> <span class="b b-m">measured</span> The <code>--type=</code> flag is how
+      Chrome distinguishes the roles: the binary is one and the same, and the behaviour is selected by a
+      command-line argument at launch. The browser process does not have this flag.</p>
+  </div>
+
+  <h3>Why do it this way</h3>
+
+  <p>There is exactly one reason and it is all in §&nbsp;2: <strong>a separate address space is the only
+    guarantee the hardware provides.</strong> Threads inside a process provide no such guarantee at all:
+    any thread can write to any byte of the shared heap, and one indexing bug in an image parser would
+    corrupt the passwords from another tab. Three effects follow from this:</p>
+
+  <ul>
+    <li><strong>Crashes stay local.</strong> One renderer died — one tab died, not the browser.
+      Exactly what Fig.&nbsp;4 showed: a write in another process is not visible, because the MMU maps
+      different physical pages under the same virtual address.</li>
+    <li><strong>The sandbox.</strong> A renderer runs with almost no permissions: no files, no direct
+      network access. Everything goes through IPC to the browser process, which vets the requests. Giving
+      such restrictions to a <em>thread</em> is impossible — the permissions in §&nbsp;2 are shared across
+      the whole process, they are a property of it, not of a thread.</li>
+    <li><strong>Parallelism.</strong> A side benefit, but a pleasant one: the scheduler spreads 49
+      processes across 16 cores by itself.</li>
+  </ul>
+
+  <h3>What it costs</h3>
+
+  <p>Every process has its own heap, its own copies of the V8 and Blink structures, its own 26+ threads.
+    Hence Chrome's reputation as a memory hog, and hence also <strong>the trap when reading Activity
+    Monitor:</strong> the Memory column <em>must not be summed</em>. The binary's code, the framework, fonts
+    and system libraries are mapped into all the processes at once and physically exist in a single copy —
+    thanks to copy-on-write, the same mechanism as in Fig.&nbsp;4. Adding up 49 rows counts those pages 49
+    times. What you should look at is system-wide Memory&nbsp;Pressure, not per-row arithmetic.</p>
+
+  <h3>How to see the truth about tabs</h3>
+
+  <p>Chrome has its own task manager: <strong>⌥⇧Esc</strong> or Menu&nbsp;→ More
+    Tools&nbsp;→ Task Manager. Unlike Activity Monitor, it knows <em>which tab corresponds to which
+    PID</em>, and it lists extensions separately. It is the only way to see the
+    "tab&nbsp;↔&nbsp;process" mapping — the operating system knows nothing about tabs, to it these are
+    simply 42 processes with the same name.</p>
+
+  <p>In Activity Monitor it is worth enabling <em>View → All Processes, Hierarchically</em> — then the
+    49 rows fold into the tree from Fig.&nbsp;9 and it becomes visible who is whose child.</p>
+
+  <h3>The same architecture on five operating systems</h3>
+
+  <p>A multi-process application model behaves very differently across platforms, and on one of the five it
+    is simply unavailable to an application.</p>
+
+  <div class="fig wide">
+    <div class="tw">
+      <table>
+        <caption>Table 7 — a multi-process application by platform</caption>
+        <thead>
+          <tr><th>OS</th><th>The "application" unit</th><th>How processes are born</th><th>How the OS groups them</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>macOS</th>
+            <td>an <code>.app</code> bundle; the helpers are nested <em>Google Chrome Helper.app</em> bundles</td>
+            <td><code>posix_spawn</code> of the same binary with a <code>--type=</code> flag. There is no zygote — and indeed none is visible in the measurement above</td>
+            <td>The Dock shows one icon; Activity Monitor shows 49 rows. Grouping only via <em>Hierarchically</em> <span class="b b-m">measured</span></td>
+          </tr>
+          <tr>
+            <th>Windows</th>
+            <td><code>chrome.exe</code>, N times in the process list</td>
+            <td><code>CreateProcess</code> only — the image is loaded from scratch every time, there is no <code>fork</code> equivalent (§&nbsp;5). It is expensive, hence the frugality with the number of processes</td>
+            <td>Task Manager folds them into one expandable "Google Chrome" row by itself — which is why this confusion barely arises on Windows. Plus Job Objects for shared limits <span class="b b-doc">docs</span></td>
+          </tr>
+          <tr>
+            <th>Linux</th>
+            <td>one executable file, the role comes from the arguments</td>
+            <td>Its own <strong>zygote</strong>: <code>--type=zygote</code> is forked, and renderers with the engine already loaded are born from it cheaply. The sandbox is user namespaces + seccomp-bpf</td>
+            <td>It does not. <code>ps -ef --forest | grep chrome</code> is the only way to see the structure <span class="b b-doc">docs</span></td>
+          </tr>
+          <tr>
+            <th>Android</th>
+            <td>an APK; additional processes are <strong>declared in advance</strong> in the manifest via <code>android:process</code></td>
+            <td>A fork of the system Zygote. The number of processes is capped from above and depends on the device class</td>
+            <td>The system is entitled to <strong>kill</strong> any of the app's processes under memory pressure — the tab reloads when you come back. There is no shared memory between processes, only Binder IPC <span class="b b-est">estimate</span></td>
+          </tr>
+          <tr>
+            <th>iOS</th>
+            <td class="hard">1 process — full stop</td>
+            <td><strong>Impossible.</strong> <code>fork</code>/<code>posix_spawn</code> are forbidden to apps by the sandbox (§&nbsp;5)</td>
+            <td>Which is why Chrome on iOS is <strong>not Chrome</strong>: it is a wrapper around <code>WKWebView</code>, the Blink engine does not run there. Site isolation is provided by the system itself: the <code>com.apple.WebKit.WebContent</code> processes are spawned by the OS and do not belong to the app <span class="b b-doc">docs</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="cap"><b>Table 7.</b> The iOS row is the most instructive one in the whole document. A ban on
+      creating processes is not an "inconvenience": it forces a complete architectural rewrite and hands
+      isolation over to the operating system. One and the same program exists in five different forms on
+      five operating systems precisely because of §&nbsp;5. <em>(In the EU, third-party engines are formally
+      allowed under the DMA — in practice this has had almost no effect on the architecture.)</em></p>
+  </div>
+
+  <div class="key">
+    <span class="h">How to read any task manager</span>
+    <p>Every <strong>row</strong> is a process, never a thread. The <em>Threads</em> column is how many
+      threads live inside that row. One <strong>name</strong> across several rows means one program in
+      several processes, not duplicates. <strong>Windows and tabs</strong> are not represented in this list
+      at all: the OS knows nothing about them, the application invented them.</p>
+  </div>
+
+  <h2><span class="s">§ 7</span><span class="t">Where you hit a wall before the limit</span></h2>
+
+  <p>All the numbers above are ceilings that real code almost never reaches. The Chrome from §&nbsp;6 is one
+    of the heaviest consumers on the system, and its 1232 threads amount to 10% of the macOS limit — and
+    they are spread across 49 processes rather than collected in one. Other things get in the way, in the
+    order in which they bite:</p>
+
+  <ol class="ranked">
+    <li>
+      <span class="k">1st</span>
+      <span class="v"><b>Context switching</b>
+      <span>Hundreds of nanoseconds per switch, plus cache and TLB misses. With thousands of active threads
+        the CPU is busy shuffling registers rather than doing your work. This bites at tens or hundreds of
+        threads, not at thousands.</span></span>
+    </li>
+    <li>
+      <span class="k">2nd</span>
+      <span class="v"><b>Contention for memory and locks</b>
+      <span>There is one heap per process. The allocator copes with per-thread caches (magazines in
+        libmalloc, tcache in jemalloc), but those are still <em>partitions of one heap</em>, not separate
+        heaps — an address from one thread is valid in any other. A shared mutex turns N threads into
+        one.</span></span>
+    </li>
+    <li>
+      <span class="k">3rd</span>
+      <span class="v"><b>Stack pages actually touched</b>
+      <span>The reservation is lazy, but deep recursion or big arrays on the stack commit pages for real. A
+        thousand threads that each ate 200 KiB of stack is 200 MiB of honest RAM.</span></span>
+    </li>
+    <li>
+      <span class="k">4th</span>
+      <span class="v"><b>And only then — the kernel limit</b>
+      <span><code>EAGAIN</code> on the 12287th thread. By that point the program has long been unusable for
+        the reasons above.</span></span>
+    </li>
+  </ol>
+
+  <div class="key">
+    <span class="h">This is where async grows from</span>
+    <p>Async runtimes (<code>tokio</code>, <code>async-std</code>) exist precisely because of item 1.
+      They hold 100,000 tasks on 16 OS threads: a task is a state machine in the heap a few hundred bytes
+      in size, not a thread with a stack and an entry in the scheduler. Switching between them is an
+      ordinary function call, with no kernel involvement. You need a thread where the work
+      <em>computes</em>; a task where the work <em>waits</em>.</p>
+  </div>
+
+  <h2><span class="s">§ 8</span><span class="t">Check it on your own machine</span></h2>
+
+  <div class="fig wide">
+    <div class="tw">
+      <table>
+        <caption>Table 8 — commands by platform</caption>
+        <thead><tr><th>What</th><th>Linux</th><th>macOS</th><th>Windows</th></tr></thead>
+        <tbody>
+          <tr>
+            <th>Main thread's stack</th>
+            <td><code>ulimit -s</code></td>
+            <td><code>ulimit -s</code></td>
+            <td><code>dumpbin /headers app.exe</code></td>
+          </tr>
+          <tr>
+            <th>Thread limit</th>
+            <td><code>cat /proc/sys/kernel/threads-max</code></td>
+            <td><code>sysctl kern.num_taskthreads</code></td>
+            <td><em>no fixed limit</em></td>
+          </tr>
+          <tr>
+            <th>Process limit</th>
+            <td><code>cat /proc/sys/kernel/pid_max</code></td>
+            <td><code>sysctl kern.maxproc</code></td>
+            <td><em>no fixed limit</em></td>
+          </tr>
+          <tr>
+            <th>Threads in a process</th>
+            <td><code>ls /proc/&lt;pid&gt;/task | wc -l</code></td>
+            <td><code>ps -M &lt;pid&gt;</code></td>
+            <td><code>Get-Process -Id &lt;pid&gt;</code></td>
+          </tr>
+          <tr>
+            <th>An application's<br>process tree</th>
+            <td><code>ps -ef --forest | grep chrome</code></td>
+            <td><code>ps -axo pid,ppid,command</code><br>Activity Monitor → <em>View → Hierarchically</em></td>
+            <td>Task Manager → the "Processes" tab folds them by itself</td>
+          </tr>
+          <tr>
+            <th>Tab ↔ process</th>
+            <td colspan="3">Only from inside the browser: Chrome → <code>⌥⇧Esc</code> (Windows/Linux: <code>Shift+Esc</code>). The OS knows nothing about tabs</td>
+          </tr>
+          <tr>
+            <th>Cores for a pool</th>
+            <td colspan="3"><code>std::thread::available_parallelism()</code> — the right answer on every platform</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="foot wide">Every value marked "measured" was obtained on macOS 14.5 / Apple M3 Max /
+    rustc 1.97.1 with small Rust and C programs: <code>pthread_get_stacksize_np</code> for the stacks,
+    spawning until <code>EAGAIN</code> for the thread limit, <code>Box</code> + <code>fork</code> to check
+    heap isolation, <code>ps</code> + <code>awk</code> to take apart Chrome's tree
+    (§&nbsp;6 is a snapshot of one particular session: 49 processes, 1232 threads; your numbers will
+    differ). The "estimate" mark means the number depends on the libc version, the firmware or the kernel
+    configuration — check with the commands from §&nbsp;8. No fork bomb was run to test the process
+    limit.</p>
+
+</main>
