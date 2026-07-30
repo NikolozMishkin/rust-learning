@@ -1258,6 +1258,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "scoped_threads"
+version = "0.1.0"
+
+[[package]]
 name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1357,6 +1361,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "synchronization_through_barriers"
+version = "0.1.0"
+
+[[package]]
 name = "textwrap"
 version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1384,6 +1392,10 @@ dependencies = [
 
 [[package]]
 name = "thread_basics"
+version = "0.1.0"
+
+[[package]]
+name = "thread_parking"
 version = "0.1.0"
 
 [[package]]
