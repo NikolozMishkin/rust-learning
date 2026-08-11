@@ -1,0 +1,1868 @@
+<title>Устройство async/await в Rust: poll, Pin, стейт-машина, память</title>
+
+<style>
+  :root {
+    --ground: #f4f6f8;
+    --surface: #ffffff;
+    --surface-2: #eceff3;
+    --ink: #12161c;
+    --ink-2: #3b4552;
+    --muted: #5a6472;
+    --line: #d6dbe2;
+    --line-2: #c2c9d3;
+    --stack: #a95f00;
+    --stack-bg: #f7ead6;
+    --heap: #0b6e78;
+    --heap-bg: #dceff1;
+    --danger: #bc3a26;
+    --danger-bg: #f9e3de;
+    --disc: #6b4fa8;
+    --disc-bg: #e9e3f6;
+    --pad: #9aa3b0;
+    --pad-bg: #e4e7ec;
+
+    --f-display: Charter, "Bitstream Charter", Superclarendon, "Iowan Old Style", Georgia, serif;
+    --f-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --f-mono: "SF Mono", ui-monospace, Menlo, "JetBrains Mono", Consolas, monospace;
+
+    --col: 68ch;
+    --wide: 1080px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0d1014;
+      --surface: #171b22;
+      --surface-2: #1f242c;
+      --ink: #e7eaef;
+      --ink-2: #c3cad4;
+      --muted: #8b96a5;
+      --line: #2b323c;
+        --line-2: #3a4250;
+      --stack: #e4a143;
+      --stack-bg: #3a2c14;
+      --heap: #3ebcc6;
+      --heap-bg: #10333a;
+      --danger: #ef6e58;
+      --danger-bg: #3d2019;
+      --disc: #b39ce6;
+      --disc-bg: #2a2340;
+      --pad: #737f8e;
+      --pad-bg: #232931;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0d1014;
+    --surface: #171b22;
+    --surface-2: #1f242c;
+    --ink: #e7eaef;
+    --ink-2: #c3cad4;
+    --muted: #8b96a5;
+    --line: #2b323c;
+    --line-2: #3a4250;
+    --stack: #e4a143;
+    --stack-bg: #3a2c14;
+    --heap: #3ebcc6;
+    --heap-bg: #10333a;
+    --danger: #ef6e58;
+    --danger-bg: #3d2019;
+    --disc: #b39ce6;
+    --disc-bg: #2a2340;
+    --pad: #737f8e;
+    --pad-bg: #232931;
+  }
+
+  :root[data-theme="light"] {
+    --ground: #f4f6f8;
+    --surface: #ffffff;
+    --surface-2: #eceff3;
+    --ink: #12161c;
+    --ink-2: #3b4552;
+    --muted: #5a6472;
+    --line: #d6dbe2;
+    --line-2: #c2c9d3;
+    --stack: #a95f00;
+    --stack-bg: #f7ead6;
+    --heap: #0b6e78;
+    --heap-bg: #dceff1;
+    --danger: #bc3a26;
+    --danger-bg: #f9e3de;
+    --disc: #6b4fa8;
+    --disc-bg: #e9e3f6;
+    --pad: #9aa3b0;
+    --pad-bg: #e4e7ec;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- layout ---------- */
+  .page {
+    max-width: var(--wide);
+    margin: 0 auto;
+    padding: 0 24px 120px;
+  }
+
+  section { margin-top: 72px; }
+
+  .col {
+    max-width: var(--col);
+  }
+
+  .col > * + * { margin-top: 1.1em; }
+
+  p { margin: 0; }
+
+  /* ---------- type ---------- */
+  h1, h2, h3 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h1 { font-size: clamp(2.1rem, 5.2vw, 3.4rem); }
+  h2 { font-size: clamp(1.6rem, 3.4vw, 2.1rem); }
+  h3 {
+    font-size: 1.18rem;
+    letter-spacing: -0.008em;
+  }
+
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 14px;
+  }
+
+  .lede {
+    font-size: 1.14rem;
+    color: var(--ink-2);
+  }
+
+  strong { font-weight: 650; }
+
+  code {
+    font-family: var(--f-mono);
+    font-size: 0.86em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0.08em 0.32em;
+    white-space: nowrap;
+  }
+
+  a { color: var(--heap); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--stack);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  /* ---------- header ---------- */
+  header.masthead {
+    padding-top: 64px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 40px;
+  }
+
+  .env {
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 28px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+  }
+  .env b { color: var(--ink-2); font-weight: 500; }
+
+  /* ---------- section heads ---------- */
+  .shead {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    border-top: 2px solid var(--ink);
+    padding-top: 16px;
+    margin-bottom: 26px;
+  }
+  .shead .mark {
+    font-family: var(--f-mono);
+    font-size: 0.8rem;
+    color: var(--stack);
+    letter-spacing: 0.06em;
+    flex: none;
+    padding-top: 0.35em;
+  }
+
+  /* ---------- figures ---------- */
+  figure {
+    margin: 36px 0;
+  }
+  figcaption {
+    font-size: 0.86rem;
+    color: var(--muted);
+    margin-top: 12px;
+    max-width: 76ch;
+  }
+  figcaption b { color: var(--ink-2); font-weight: 600; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 22px;
+    overflow-x: auto;
+  }
+
+  /* ---------- code blocks ---------- */
+  pre {
+    font-family: var(--f-mono);
+    font-size: 0.8rem;
+    line-height: 1.6;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    margin: 0;
+    tab-size: 4;
+  }
+  pre.term {
+    background: var(--surface-2);
+    font-size: 0.76rem;
+  }
+  .c { color: var(--muted); font-style: italic; }
+  .k { color: var(--disc); font-weight: 600; }
+  .s { color: var(--heap); }
+  .n { color: var(--stack); }
+  .hl { background: var(--stack-bg); border-radius: 3px; padding: 0 2px; font-weight: 600; }
+  .bad { color: var(--danger); font-weight: 600; }
+
+  /* ---------- annotated signature ---------- */
+  .sig {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 28px 24px 24px;
+    overflow-x: auto;
+  }
+  .sig-line {
+    font-family: var(--f-mono);
+    font-size: clamp(0.82rem, 2vw, 1.05rem);
+    white-space: nowrap;
+    line-height: 1.5;
+  }
+  .tag {
+    border-bottom: 2px solid var(--line-2);
+    padding-bottom: 2px;
+    cursor: default;
+  }
+  .tag.t-recv { border-color: var(--disc); color: var(--disc); font-weight: 600; }
+  .tag.t-pin  { border-color: var(--stack); color: var(--stack); font-weight: 600; }
+  .tag.t-cx   { border-color: var(--heap); color: var(--heap); font-weight: 600; }
+  .tag.t-poll { border-color: var(--danger); color: var(--danger); font-weight: 600; }
+
+  .legend {
+    display: grid;
+    gap: 14px;
+    margin-top: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  }
+  .legend div {
+    border-left: 3px solid var(--line-2);
+    padding-left: 12px;
+    font-size: 0.88rem;
+    color: var(--ink-2);
+  }
+  .legend div b {
+    display: block;
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    margin-bottom: 3px;
+  }
+  .legend .l-recv { border-color: var(--disc); }
+  .legend .l-recv b { color: var(--disc); }
+  .legend .l-pin  { border-color: var(--stack); }
+  .legend .l-pin b { color: var(--stack); }
+  .legend .l-cx   { border-color: var(--heap); }
+  .legend .l-cx b { color: var(--heap); }
+  .legend .l-poll { border-color: var(--danger); }
+  .legend .l-poll b { color: var(--danger); }
+
+  /* ---------- byte map ---------- */
+  .bytemap { min-width: 620px; }
+
+  .axis {
+    display: grid;
+    grid-template-columns: 148px 1fr;
+    gap: 12px;
+    align-items: end;
+    margin-bottom: 6px;
+  }
+  .axis-ticks {
+    display: grid;
+    font-family: var(--f-mono);
+    font-size: 0.66rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .axis-ticks span {
+    border-left: 1px solid var(--line-2);
+    padding-left: 3px;
+  }
+
+  .vrow {
+    display: grid;
+    grid-template-columns: 148px 1fr;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+  .vname {
+    font-family: var(--f-mono);
+    font-size: 0.74rem;
+    text-align: right;
+    color: var(--ink-2);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .vname small {
+    display: block;
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 0.92em;
+  }
+  .vbar {
+    display: grid;
+    height: 38px;
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .seg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--f-mono);
+    font-size: 0.66rem;
+    font-weight: 600;
+    border-right: 1px solid var(--line-2);
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 0 2px;
+  }
+  .seg:last-child { border-right: 0; }
+  .seg.s-local { background: var(--stack-bg); color: var(--stack); }
+  .seg.s-child { background: var(--heap-bg); color: var(--heap); }
+  .seg.s-disc  { background: var(--disc-bg); color: var(--disc); }
+  .seg.s-pad   {
+    background: var(--pad-bg);
+    color: var(--pad);
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(128,138,150,0.18) 4px, rgba(128,138,150,0.18) 8px);
+  }
+  .seg.s-empty { background: transparent; color: var(--muted); font-weight: 400; font-style: italic; }
+  .seg.s-ptr   { background: var(--danger-bg); color: var(--danger); }
+
+  .swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-top: 16px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-family: var(--f-mono);
+  }
+  .swatches span { display: flex; align-items: center; gap: 7px; }
+  .swatches i {
+    width: 13px; height: 13px; border-radius: 3px; border: 1px solid var(--line-2);
+    flex: none;
+  }
+
+  /* ---------- state machine ---------- */
+  .fsm {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    min-width: 660px;
+  }
+  .node {
+    flex: 1;
+    border: 1.5px solid var(--line-2);
+    border-radius: 6px;
+    background: var(--surface-2);
+    padding: 12px 10px;
+    text-align: center;
+  }
+  .node .nn {
+    font-family: var(--f-mono);
+    font-size: 0.76rem;
+    font-weight: 700;
+    display: block;
+  }
+  .node .nb {
+    font-family: var(--f-mono);
+    font-size: 0.66rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .node.suspend { border-color: var(--stack); background: var(--stack-bg); }
+  .node.suspend .nn { color: var(--stack); }
+  .node.start { border-color: var(--disc); background: var(--disc-bg); }
+  .node.start .nn { color: var(--disc); }
+  .node.done { border-color: var(--heap); background: var(--heap-bg); }
+  .node.done .nn { color: var(--heap); }
+  .node.panic { border-color: var(--danger); background: var(--danger-bg); }
+  .node.panic .nn { color: var(--danger); }
+
+  .arrow {
+    flex: 0 0 62px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--muted);
+  }
+  .arrow .lbl {
+    font-family: var(--f-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.03em;
+    text-align: center;
+    line-height: 1.25;
+  }
+  .arrow .shaft {
+    width: 100%;
+    height: 1.5px;
+    background: var(--line-2);
+    position: relative;
+  }
+  .arrow .shaft::after {
+    content: "";
+    position: absolute;
+    right: 0; top: -3.5px;
+    border-left: 7px solid var(--line-2);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+  }
+
+  .selfloop {
+    font-family: var(--f-mono);
+    font-size: 0.66rem;
+    color: var(--stack);
+    text-align: center;
+    margin-top: 10px;
+  }
+
+  /* ---------- call stack nesting ---------- */
+  .cs { font-family: var(--f-mono); font-size: 0.76rem; min-width: 520px; }
+  .cs-frame {
+    border: 1px solid var(--line-2);
+    border-left: 3px solid var(--heap);
+    border-radius: 5px;
+    padding: 9px 11px;
+    margin-top: 7px;
+    background: var(--surface-2);
+  }
+  .cs-frame .fl {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: baseline;
+  }
+  .cs-frame .depth {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.92em;
+    flex: none;
+  }
+  .cs-frame.leaf { border-left-color: var(--stack); }
+  .cs-frame.leaf .fl b { color: var(--stack); }
+
+  /* ---------- memory split ---------- */
+  .split {
+    display: grid;
+    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .region {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .region > h4 {
+    margin: 0;
+    font-family: var(--f-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .region.r-stack > h4 { color: var(--stack); background: var(--stack-bg); }
+  .region.r-heap > h4 { color: var(--heap); background: var(--heap-bg); }
+  .region ul {
+    margin: 0;
+    padding: 12px 14px 14px 30px;
+    font-size: 0.88rem;
+    color: var(--ink-2);
+  }
+  .region li + li { margin-top: 7px; }
+  .region li code { white-space: normal; }
+
+  /* ---------- tables ---------- */
+  .tw { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--f-body);
+    font-size: 0.85rem;
+    color: var(--ink);
+    min-width: 480px;
+  }
+  caption {
+    text-align: left;
+    font-size: 0.86rem;
+    color: var(--muted);
+    padding-bottom: 10px;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  thead th {
+    font-family: var(--f-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1.5px solid var(--line-2);
+    white-space: nowrap;
+  }
+  td.num, th.num {
+    text-align: right;
+    font-family: var(--f-mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  td.mono { font-family: var(--f-mono); font-size: 0.9em; }
+  tbody tr:last-child td { border-bottom: 0; }
+  .row-hi td { background: var(--stack-bg); }
+  .up { color: var(--danger); font-weight: 600; }
+  .dn { color: var(--heap); font-weight: 600; }
+
+  /* ---------- callouts ---------- */
+  .note {
+    border-left: 3px solid var(--heap);
+    background: var(--heap-bg);
+    padding: 14px 18px;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.94rem;
+  }
+  .note.warn { border-color: var(--danger); background: var(--danger-bg); }
+  .note b { color: var(--ink); }
+
+  /* ---------- rules list ---------- */
+  .rules { display: grid; gap: 2px; counter-reset: r; }
+  .rule {
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 14px;
+    padding: 16px 0;
+    border-top: 1px solid var(--line);
+    align-items: start;
+  }
+  .rule::before {
+    counter-increment: r;
+    content: counter(r);
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    color: var(--stack);
+    font-weight: 700;
+    padding-top: 2px;
+  }
+  .rule h3 { margin-bottom: 5px; }
+  .rule p { font-size: 0.94rem; color: var(--ink-2); }
+  .rule .ev {
+    font-family: var(--f-mono);
+    font-size: 0.74rem;
+    color: var(--muted);
+    margin-top: 7px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- two-up code ---------- */
+  .twoup {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+    align-items: start;
+  }
+  .twoup > div > h4 {
+    margin: 0 0 8px;
+    font-family: var(--f-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  details {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 0;
+    margin-top: 14px;
+  }
+  summary {
+    cursor: pointer;
+    padding: 13px 18px;
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    color: var(--ink-2);
+    letter-spacing: 0.02em;
+  }
+  details[open] summary { border-bottom: 1px solid var(--line); }
+  details > pre { border: 0; border-radius: 0 0 8px 8px; background: transparent; }
+
+  footer {
+    margin-top: 90px;
+    padding-top: 26px;
+    border-top: 1px solid var(--line);
+    font-size: 0.84rem;
+    color: var(--muted);
+  }
+  footer code { font-size: 0.9em; }
+
+  @media (max-width: 620px) {
+    body { font-size: 16px; }
+    .axis, .vrow { grid-template-columns: 96px 1fr; gap: 8px; }
+    .vname { font-size: 0.66rem; }
+  }
+</style>
+
+<div class="page">
+
+<header class="masthead">
+  <div class="col">
+    <span class="eyebrow">Rust · async/await · tokio</span>
+    <h1>Что на самом деле происходит между <code>.await</code> и <code>poll</code></h1>
+    <p class="lede" style="margin-top:20px">
+      Разбор внутренностей: почему подпись <code>poll</code> именно такая, во что компилятор
+      превращает <code>async fn</code>, какие байты лежат в стеке, а какие в хипе,
+      и откуда берётся минимальный размер future.
+    </p>
+    <p style="margin-top:14px;color:var(--muted);font-size:0.94rem">
+      Все числа на этой странице — не из документации, а замеры на конкретной машине:
+      счётчик аллокаций, дампы сырых байтов и <code>-Zprint-type-sizes</code>.
+      Код примеров лежит в <code>lessons/async_await/src/bin/</code>.
+    </p>
+    <div class="env">
+      <span><b>rustc</b> 1.97.1 stable</span>
+      <span><b>target</b> aarch64-apple-darwin</span>
+      <span><b>tokio</b> 1.53.1</span>
+      <span><b>profile</b> debug</span>
+      <span><b>layout</b> rustc 1.99-nightly, -Zprint-type-sizes</span>
+    </div>
+  </div>
+</header>
+
+<!-- ================================================================= -->
+<section>
+  <div class="shead">
+    <span class="mark">§&nbsp;1</span>
+    <h2>Подпись <code>poll</code>: каждый элемент решает конкретную проблему</h2>
+  </div>
+
+  <figure class="sig">
+    <div class="sig-line">
+      <span class="k">fn</span> poll(<span class="tag t-recv">self</span>:
+      <span class="tag t-pin">Pin&lt;&amp;mut Self&gt;</span>,
+      cx: <span class="tag t-cx">&amp;mut Context&lt;'_&gt;</span>)
+      -&gt; <span class="tag t-poll">Poll&lt;Self::Output&gt;</span>
+    </div>
+    <div class="legend">
+      <div class="l-recv">
+        <b>self: … — получатель</b>
+        Не первый аргумент, а именно получатель метода (arbitrary self type).
+        Только поэтому <code>Future</code> остаётся dyn-совместимым.
+      </div>
+      <div class="l-pin">
+        <b>Pin&lt;&amp;mut Self&gt;</b>
+        Обещание «это значение больше не переедет по памяти».
+        Нужно, потому что future держит указатели внутрь себя.
+      </div>
+      <div class="l-cx">
+        <b>&amp;mut Context</b>
+        Переносит <code>Waker</code> — способ сказать рантайму
+        «я снова готов, опроси меня».
+      </div>
+      <div class="l-poll">
+        <b>Poll&lt;Output&gt;</b>
+        Два ответа: <code>Ready(v)</code> — вот значение;
+        <code>Pending</code> — я сохранил состояние, разбужу через waker.
+      </div>
+    </div>
+  </figure>
+
+  <div class="col">
+    <p>
+      Дальше — по одному пункту, каждый с доказательством. Начнём с <code>Pin</code>,
+      потому что это единственная часть подписи, существование которой
+      не очевидно из общей картины.
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================= -->
+<section>
+  <div class="shead">
+    <span class="mark">§&nbsp;2</span>
+    <h2>Future указывает внутрь себя — вот его адреса</h2>
+  </div>
+
+  <div class="col">
+    <p>
+      Про <code>Pin</code> обычно говорят «для самоссылающихся структур», и на этом
+      объяснение заканчивается. Но самоссылку можно просто увидеть. Возьмём
+      минимальный async-блок, где ссылка переживает точку приостановки:
+    </p>
+  </div>
+
+  <figure>
+    <pre><span class="k">let mut</span> fut = pin!(<span class="k">async</span> {
+    <span class="k">let</span> x: u64 = <span class="n">0xAABB_CCDD_EEFF_0011</span>;
+    <span class="k">let</span> r: &amp;u64 = &amp;x;   <span class="c">// борроу переживает await → оба поля уедут В future</span>
+    YieldOnce::new().<span class="k">await</span>;
+    black_box(r);
+});</pre>
+  </figure>
+
+  <div class="col">
+    <p>
+      После первого <code>poll</code> читаем сырые байты самого future
+      и сравниваем с его собственным адресом:
+    </p>
+  </div>
+
+  <figure>
+    <pre class="term">адрес самого future : 0x16f416260
+размер future       : 24 байт
+
+offset 0..8  = 0xaabbccddeeff0011   <span class="c">← сама переменная x</span>
+offset 8..16 = <span class="hl">0x000000016f416260</span>   <span class="c">← ссылка r</span>
+адрес future = <span class="hl">0x000000016f416260</span>
+
+r указывает на offset <span class="n">0</span> ОТ НАЧАЛА future. Это самоссылка.</pre>
+    <figcaption>
+      Байты ссылки <b>совпадают с адресом самого future</b>. Внутри стейт-машины
+      это уже не борроу, за которым следит компилятор, а обычный указатель в поле.
+      Сдвиньте эти 24 байта в памяти — <code>r</code> станет висячим, и никто не заметит.
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="panel">
+      <div class="bytemap">
+        <div class="axis">
+          <span></span>
+          <div class="axis-ticks" style="grid-template-columns:repeat(3,1fr)">
+            <span>0</span><span>8</span><span>16</span>
+          </div>
+        </div>
+        <div class="vrow">
+          <div class="vname">Suspend0<small>24 B всего</small></div>
+          <div class="vbar" style="grid-template-columns:8fr 8fr 1fr 1fr 6fr">
+            <div class="seg s-local">x: u64</div>
+            <div class="seg s-ptr">r: &amp;u64 ⟵</div>
+            <div class="seg s-child" title="вложенный future YieldOnce">Y</div>
+            <div class="seg s-disc" title="дискриминант состояния">d</div>
+            <div class="seg s-pad">padding</div>
+          </div>
+        </div>
+      </div>
+      <div class="swatches">
+        <span><i style="background:var(--stack-bg);border-color:var(--stack)"></i>локал</span>
+        <span><i style="background:var(--danger-bg);border-color:var(--danger)"></i>указатель внутрь себя</span>
+        <span><i style="background:var(--heap-bg);border-color:var(--heap)"></i>вложенный future</span>
+        <span><i style="background:var(--disc-bg);border-color:var(--disc)"></i>дискриминант</span>
+        <span><i style="background:var(--pad-bg);border-color:var(--pad)"></i>выравнивание</span>
+      </div>
+      <figcaption>
+        Поле <code>r</code> хранит адрес поля <code>x</code>, а <code>x</code> лежит по смещению 0
+        того же самого объекта. Валидность <code>r</code> держится ровно на одном условии:
+        объект не двигали.
+      </figcaption>
+    </div>
+  </figure>
+
+  <div class="col">
+    <h3>Почему <code>&amp;mut self</code> не подошёл бы</h3>
+    <p>
+      Потому что <code>&amp;mut T</code> даёт право переписать значение целиком —
+      и для этого не нужен <code>unsafe</code>. Достаточно <code>mem::swap</code>:
+    </p>
+  </div>
+
+  <figure>
+    <div class="twoup">
+      <div>
+        <h4>самоссылающийся тип «как у компилятора»</h4>
+        <pre><span class="k">struct</span> SelfRef {
+    data: u64,
+    ptr: *<span class="k">const</span> u64,  <span class="c">// смотрит на self.data</span>
+}
+
+<span class="c">// аналог первого poll:</span>
+<span class="c">// зафиксировали внутренний указатель</span>
+<span class="k">fn</span> init(&amp;<span class="k">mut self</span>) {
+    <span class="k">self</span>.ptr = &amp;<span class="k">self</span>.data;
+}</pre>
+      </div>
+      <div>
+        <h4>вывод</h4>
+        <pre class="term">до swap:
+  a.data = 0x11111111   a.read() = 0x11111111  ok
+  b.data = 0x22222222   b.read() = 0x22222222  ok
+
+после mem::swap(&amp;mut a, &amp;mut b):
+  a.data = 0x22222222   a.read() = <span class="bad">0x11111111</span>  <span class="bad">✗</span>
+  b.data = 0x11111111   b.read() = <span class="bad">0x22222222</span>  <span class="bad">✗</span></pre>
+      </div>
+    </div>
+    <figcaption>
+      Байты переехали, внутренние указатели остались смотреть на старые места.
+      Сломались оба объекта — и <code>swap</code> здесь не <code>unsafe</code>.
+      То же умеют <code>mem::replace</code>, <code>Option::take</code>, простое <code>*self = …</code>.
+    </figcaption>
+  </figure>
+
+  <div class="col">
+    <div class="note">
+      <b>Что такое <code>Pin&lt;&amp;mut T&gt;</code> по существу:</b> это <code>&amp;mut T</code>,
+      у которого забрали одну способность — выдавать наружу <code>&amp;mut T</code>
+      (пока <code>T: !Unpin</code>). Нет <code>&amp;mut</code> — нет <code>swap</code>,
+      нет <code>replace</code>, нет переезда. Всё остальное осталось.
+    </div>
+    <p>
+      При этом <code>Pin</code> ничего не стоит в рантайме: это
+      <code>#[repr(transparent)]</code>-обёртка над указателем.
+      <code>size_of::&lt;Pin&lt;&amp;mut T&gt;&gt;()</code> и <code>size_of::&lt;&amp;mut T&gt;()</code> —
+      оба 8 байт. Никакой машинный код за <code>Pin</code> не генерируется:
+      это обещание, которое живёт только в системе типов.
+    </p>
+
+    <h3>Кому <code>Pin</code> ничего не запрещает: <code>Unpin</code></h3>
+    <p>
+      Самоссылки бывают не у всех. Если ваш <code>Future</code> написан руками
+      и просто хранит <code>bool</code> — двигать его безопасно, и компилятор
+      выдаёт ему автотрейт <code>Unpin</code>. Для таких типов
+      <code>Pin&lt;&amp;mut Self&gt;</code> свободно отдаёт <code>&amp;mut Self</code>
+      через <code>DerefMut</code> — отсюда возможность писать
+      <code>self.polled = true</code> в <code>poll</code> без единого <code>unsafe</code>.
+    </p>
+  </div>
+
+  <figure>
+    <div class="tw">
+      <table>
+        <caption>Проверено компилятором: <code>Unpin</code> или нет</caption>
+        <thead>
+          <tr><th>тип</th><th>Unpin</th><th>что из этого следует</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">YieldOnce { polled: bool }</td>
+            <td class="dn">да</td>
+            <td><code>Pin::new(&amp;mut f)</code> доступен без unsafe</td>
+          </tr>
+          <tr>
+            <td class="mono">std::future::Ready&lt;u8&gt;</td>
+            <td class="dn">да</td>
+            <td>двигать можно в любой момент</td>
+          </tr>
+          <tr>
+            <td class="mono">Pin&lt;Box&lt;Coroutine&gt;&gt;</td>
+            <td class="dn">да</td>
+            <td>сам указатель двигать можно — содержимое-то в хипе не шевелится</td>
+          </tr>
+          <tr class="row-hi">
+            <td class="mono">любой <code>async fn</code> / <code>async {}</code></td>
+            <td class="up">нет</td>
+            <td>только <code>pin!</code> (стек) или <code>Box::pin</code> (хип)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </figure>
+
+  <div class="col">
+    <h3>Почему получатель, а не аргумент</h3>
+    <p>
+      И последняя деталь подписи: <code>self: Pin&lt;&amp;mut Self&gt;</code> — это
+      <em>arbitrary self type</em>, фича, стабилизированная в основном ради этого места.
+      Будь это обычный параметр (<code>fn poll(this: Pin&lt;&amp;mut Self&gt;, …)</code>),
+      метод перестал бы быть диспетчеризуемым через vtable — и <code>dyn Future</code>
+      в Rust просто не существовало бы. А он существует и работает:
+    </p>
+  </div>
+
+  <figure>
+    <pre><span class="k">let mut</span> boxed: Pin&lt;Box&lt;<span class="k">dyn</span> Future&lt;Output = String&gt;&gt;&gt; = Box::pin(fetch(<span class="n">42</span>));
+<span class="c">// as_mut() даёт Pin&lt;&amp;mut dyn Future&gt;: тип стёрт, размер неизвестен</span>
+<span class="k">match</span> boxed.as_mut().poll(&amp;<span class="k">mut</span> cx) { … }
+<span class="c">// → опрошен 3 раза, результат: "conn-42/head+body"</span>
+<span class="c">// → size_of::&lt;Pin&lt;Box&lt;dyn Future&gt;&gt;&gt;() == 16 (data + vtable)</span></pre>
+  </figure>
+</section>
+
+<!-- ================================================================= -->
+<section>
+  <div class="shead">
+    <span class="mark">§&nbsp;3</span>
+    <h2>«Future нельзя перемещать» — неверно. Нельзя после первого <code>poll</code></h2>
+  </div>
+
+  <div class="col">
+    <p>
+      Если бы future нельзя было двигать вообще, не работало бы почти ничего:
+      <code>let x = printing()</code> создаёт значение в стеке,
+      <code>x.await</code> перемещает его в поле <code>__awaitee</code> родителя,
+      <code>tokio::spawn(fut)</code> перемещает в блок задачи, <code>block_on(fut)</code> —
+      в свой стековый фрейм. Все четыре операции забирают future <strong>по значению</strong>.
+      И все легальны.
+    </p>
+    <p>
+      Причина проста: <strong>до первого <code>poll</code> тело async-блока не выполнялось</strong>.
+      Ни одной внутренней ссылки ещё не существует — ломаться нечему.
+      Future в этот момент просто мешок байтов. Вот шесть перемещений подряд,
+      и только потом первый <code>poll</code>:
+    </p>
+  </div>
+
+  <figure>
+    <pre class="term">создан в стеке              @ 0x16bbca230
+переехал в фрейм функции    @ 0x16bbca290   <span class="c">// передали по значению</span>
+вернулся назад              @ 0x16bbca278   <span class="c">// вернули из функции</span>
+переехал в Vec (хип)        @ 0x137e061d0   <span class="c">// v.push(f)</span>
+Vec реаллоцировал           @ 0x138008c00   <span class="c">// байты физически скопированы!</span>
+вынут из Vec обратно в стек @ 0x16bbca360   <span class="c">// v.pop()</span>
+переехал в Box&lt;(u8, F)&gt;     @ 0x137e061d8
+
+закрепили pin!              @ 0x16bbca420   <span class="hl">← вот здесь дверь закрылась</span>
+poll #1 = Pending, poll #2 = Ready(0xdeadbeef00000000)</pre>
+    <figcaption>
+      Future с самоссылкой внутри, переехавший семь раз, в том числе с реальным
+      копированием байтов при реаллокации <code>Vec</code> — и работает корректно.
+      <b>Момент закрепления</b> — это <code>pin!</code> или <code>Box::pin</code>:
+      с него начинается обещание, а не с создания значения.
+    </figcaption>
+  </figure>
+
+  <div class="col">
+    <h3>Внутренний указатель рождается во время <code>poll</code></h3>
+    <p>
+      Вот почему граница именно там. Прогоним один и тот же future в двух разных
+      местах памяти и поищем внутри его байтов значения, попадающие в его же
+      диапазон адресов:
+    </p>
+  </div>
+
+  <figure>
+    <pre class="term">--- future в стеке @ 0x16bbca360
+    до первого poll : самоссылок нет (тело не выполнялось)
+    после poll      : offset 8 хранит <span class="hl">0x16bbca360</span> = base + 0
+
+--- future в хипе  @ 0x137e061d0
+    до первого poll : самоссылок нет (тело не выполнялось)
+    после poll      : offset 8 хранит <span class="hl">0x137e061d0</span> = base + 0</pre>
+    <figcaption>
+      Один и тот же код дал <b>разные</b> значения указателя — каждый раз равные адресу,
+      по которому future лежал в момент <code>poll</code>. Указатель не встроен в тип,
+      он вычисляется на ходу. До <code>poll</code> в этом поле ещё ничего нет;
+      после — там зафиксирован конкретный адрес, и переезд оставит его смотреть в никуда.
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="panel">
+      <div class="fsm" style="min-width:600px">
+        <div class="node start">
+          <span class="nn">значение</span>
+          <span class="nb">двигать можно свободно</span>
+        </div>
+        <div class="arrow"><span class="lbl">pin! /<br>Box::pin</span><span class="shaft"></span></div>
+        <div class="node suspend">
+          <span class="nn">закреплён</span>
+          <span class="nb">&amp;mut больше не выдаётся</span>
+        </div>
+        <div class="arrow"><span class="lbl">первый<br>poll</span><span class="shaft"></span></div>
+        <div class="node panic">
+          <span class="nn">самоссылки записаны</span>
+          <span class="nb">переезд = висячий указатель</span>
+        </div>
+      </div>
+      <figcaption>
+        Обещание берётся на шаг раньше, чем становится нужным: закрепление
+        запрещает переезд ещё до того, как появится первая внутренняя ссылка.
+        Так проще — иначе тип пришлось бы менять в момент первого <code>poll</code>.
+      </figcaption>
+    </div>
+  </figure>
+
+  <div class="col">
+    <h3>Чем именно закрыта дверь</h3>
+    <p>
+      Ничем в рантайме. <code>Pin</code> просто не отдаёт <code>&amp;mut F</code>
+      и не даёт забрать <code>F</code> по значению — а без этого нет ни одного
+      безопасного способа сдвинуть байты. Дословный вывод rustc:
+    </p>
+  </div>
+
+  <figure>
+    <pre>std::mem::swap(&amp;<span class="k">mut</span> *a, &amp;<span class="k">mut</span> *b);
+<span class="bad">error[E0596]: cannot borrow data in dereference of
+              `Pin&lt;&amp;mut impl Future&lt;Output = ()&gt;&gt;` as mutable</span>
+<span class="c">// DerefMut у Pin существует только для Unpin-типов</span>
+
+<span class="k">let</span> moved = *a;
+<span class="bad">error[E0507]: cannot move out of dereference of
+              `Pin&lt;&amp;mut impl Future&lt;Output = ()&gt;&gt;`</span>
+
+Pin::new(&amp;<span class="k">mut</span> fut);
+<span class="bad">error[E0277]: `{async block@…}` cannot be unpinned</span>
+<span class="c">// поэтому и нужны pin! / Box::pin: они делают unsafe за вас</span></pre>
+  </figure>
+
+  <div class="col">
+    <h3>Work stealing переносит указатели, а не байты</h3>
+    <p>
+      Теперь про воркеры. Когда поток «забирает задачу», он забирает из очереди
+      <strong>8-байтовый указатель</strong> на блок задачи. Сам блок с future
+      всё время лежит по одному адресу в хипе. Проверим: 16 задач на 4 воркерах,
+      каждая приостанавливается 300 раз и на каждом <code>poll</code> записывает
+      id потока и адрес своего локала, живущего внутри стейт-машины.
+    </p>
+  </div>
+
+  <figure>
+    <div class="tw">
+      <table>
+        <caption>Итог по 4800 замерам: multi_thread рантайм, 4 воркера, 16 задач</caption>
+        <thead>
+          <tr><th>задача</th><th class="num">потоков, на которых опрашивали</th><th class="num">разных адресов стейта</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">#0</td><td class="num">1</td><td class="num dn">1</td></tr>
+          <tr class="row-hi"><td class="mono">#1</td><td class="num up">4</td><td class="num dn">1</td></tr>
+          <tr class="row-hi"><td class="mono">#2</td><td class="num up">4</td><td class="num dn">1</td></tr>
+          <tr><td class="mono">#3 … #5</td><td class="num">1</td><td class="num dn">1</td></tr>
+          <tr class="row-hi"><td class="mono">#6 … #15</td><td class="num up">4</td><td class="num dn">1</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption>
+      12 задач из 16 успели побывать на всех четырёх потоках.
+      Разных адресов стейта у любой задачи — <b>ровно один</b>.
+      Миграция между потоками произошла, перемещения future — нет.
+    </figcaption>
+  </figure>
+
+  <div class="col">
+    <div class="note">
+      <b>Отсюда сразу два требования <code>spawn</code>.</b>
+      <code>Send</code> — потому что к future обращаются с разных потоков
+      (владение указателем передаётся между ними), хотя сами байты не двигают.
+      <code>'static</code> — потому что блок задачи живёт независимо от вашего
+      стекового фрейма и переживёт его.
+    </div>
+    <p>
+      Тот же принцип объясняет и <code>Pin&lt;&amp;mut F&gt;</code> в подписи <code>poll</code>:
+      рантайм передаёт по вызовам и потокам восьмибайтовый указатель,
+      а стейт-машина остаётся на месте. Перемещается право опрашивать,
+      а не то, что опрашивают.
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================= -->
+<section>
+  <div class="shead">
+    <span class="mark">§&nbsp;4</span>
+    <h2>Инстанс future — это enum, и у него есть настоящие имена</h2>
+  </div>
+
+  <div class="col">
+    <p>
+      Компилятор превращает тело <code>async fn</code> в анонимный <em>coroutine</em> —
+      enum, где каждый вариант соответствует одной точке приостановки.
+      Имена вариантов не выдуманы для объяснения, их выдаёт сам rustc:
+    </p>
+  </div>
+
+  <figure>
+    <div class="panel">
+      <div class="fsm">
+        <div class="node start">
+          <span class="nn">Unresumed</span>
+          <span class="nb">аргументы / захваты</span>
+        </div>
+        <div class="arrow"><span class="lbl">первый<br>poll</span><span class="shaft"></span></div>
+        <div class="node suspend">
+          <span class="nn">Suspend0</span>
+          <span class="nb">локалы + await'ee</span>
+        </div>
+        <div class="arrow"><span class="lbl">Ready<br>вложенного</span><span class="shaft"></span></div>
+        <div class="node suspend">
+          <span class="nn">Suspend1</span>
+          <span class="nb">локалы + await'ee</span>
+        </div>
+        <div class="arrow"><span class="lbl">тело<br>кончилось</span><span class="shaft"></span></div>
+        <div class="node done">
+          <span class="nn">Returned</span>
+          <span class="nb">0 B</span>
+        </div>
+      </div>
+      <div class="selfloop">
+        ↺ каждый <code>Suspend</code>-вариант возвращает <code>Pending</code> и остаётся в себе,
+        пока вложенный future не отдаст <code>Ready</code>
+      </div>
+      <div style="margin-top:18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div class="node panic" style="flex:0 0 auto;padding:8px 16px">
+          <span class="nn">Panicked</span>
+        </div>
+        <span style="font-size:0.86rem;color:var(--muted)">
+          пятое, служебное состояние: тело развернулось паникой. Существует всегда —
+          и это часть ответа на вопрос про минимальный размер.
+        </span>
+      </div>
+    </div>
+  </figure>
+
+  <div class="col">
+    <p>
+      Ключевое свойство: варианты enum <strong>перекрываются</strong> в памяти.
+      Размер future — это максимум по вариантам, а не сумма всех локальных переменных.
+      Вот настоящий layout для конкретного примера:
+    </p>
+  </div>
+
+  <figure>
+    <div class="twoup">
+      <div>
+        <h4>исходник</h4>
+        <pre><span class="k">async move</span> {
+    <span class="k">let</span> conn = format!(<span class="s">"conn-{id}"</span>);
+    YieldOnce::new().<span class="k">await</span>;
+    <span class="k">let</span> head = format!(<span class="s">"{conn}/head"</span>);
+    YieldOnce::new().<span class="k">await</span>;
+    format!(<span class="s">"{head}+body"</span>)
+}</pre>
+      </div>
+      <div>
+        <h4>rustc -Zprint-type-sizes</h4>
+        <pre class="term">64 bytes, alignment: 8 bytes
+  discriminant: 1 bytes
+  variant Unresumed: 28 bytes
+      padding: 23 bytes
+      upvar .id: 4 bytes
+  variant Suspend0: 32 bytes
+      local .conn: 24 bytes, offset: 0
+      upvar .id: 4 bytes
+      padding: 4 bytes
+      local .__awaitee: 1 bytes
+  variant <span class="hl">Suspend1: 63 bytes</span>
+      local .conn: 24 bytes, offset: 0
+      upvar .id: 4 bytes
+      padding: 4 bytes
+      local .__awaitee: 1 bytes
+      padding: 7 bytes
+      local .head: 24 bytes
+  variant Returned: 28 bytes
+  variant Panicked: 28 bytes</pre>
+      </div>
+    </div>
+  </figure>
+
+  <figure>
+    <div class="panel">
+      <div class="bytemap">
+        <div class="axis">
+          <span></span>
+          <div class="axis-ticks" style="grid-template-columns:repeat(8,1fr)">
+            <span>0</span><span>8</span><span>16</span><span>24</span>
+            <span>32</span><span>40</span><span>48</span><span>56</span>
+          </div>
+        </div>
+
+        <div class="vrow">
+          <div class="vname">Unresumed<small>28 B</small></div>
+          <div class="vbar" style="grid-template-columns:23fr 4fr 37fr">
+            <div class="seg s-pad">padding 23</div>
+            <div class="seg s-local">id</div>
+            <div class="seg s-empty">не используется</div>
+          </div>
+        </div>
+
+        <div class="vrow">
+          <div class="vname">Suspend0<small>32 B</small></div>
+          <div class="vbar" style="grid-template-columns:24fr 4fr 4fr 1fr 31fr">
+            <div class="seg s-local">conn: String</div>
+            <div class="seg s-local">id</div>
+            <div class="seg s-pad">pad</div>
+            <div class="seg s-child" title="__awaitee: YieldOnce">Y</div>
+            <div class="seg s-empty">не используется</div>
+          </div>
+        </div>
+
+        <div class="vrow">
+          <div class="vname">Suspend1<small>63 B — максимум</small></div>
+          <div class="vbar" style="grid-template-columns:24fr 4fr 4fr 1fr 7fr 24fr">
+            <div class="seg s-local">conn: String</div>
+            <div class="seg s-local">id</div>
+            <div class="seg s-pad">pad</div>
+            <div class="seg s-child" title="__awaitee: YieldOnce">Y</div>
+            <div class="seg s-pad">pad</div>
+            <div class="seg s-local">head: String</div>
+          </div>
+        </div>
+
+        <div class="vrow">
+          <div class="vname">Returned / Panicked<small>28 B</small></div>
+          <div class="vbar" style="grid-template-columns:23fr 4fr 37fr">
+            <div class="seg s-pad">padding 23</div>
+            <div class="seg s-local">id</div>
+            <div class="seg s-empty">не используется</div>
+          </div>
+        </div>
+
+        <div class="vrow" style="margin-top:12px">
+          <div class="vname">итого объект<small>64 B</small></div>
+          <div class="vbar" style="grid-template-columns:63fr 1fr">
+            <div class="seg s-local">максимальный вариант (Suspend1)</div>
+            <div class="seg s-disc" title="дискриминант">d</div>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        Все варианты лежат по одному адресу и перекрываются — как в любом enum.
+        Размер объекта = <b>максимальный вариант + дискриминант</b> = 63 + 1 = 64.
+        Обратите внимание: <code>upvar .id</code> присутствует во всех вариантах
+        (захваты живут всё время), а <code>conn</code> занимает слот даже в
+        <code>Suspend1</code> — почему, разберём в §&nbsp;6.
+      </figcaption>
+    </div>
+  </figure>
+
+  <div class="col">
+    <h3>То же самое, написанное руками</h3>
+    <p>
+      Чтобы не осталось магии — вот полная десугаризация. Компилятор делает ровно
+      три вещи: режет тело на варианты по точкам <code>await</code>, решает какие
+      локалы обязаны переехать в стейт, и пишет <code>unsafe</code> для проекции
+      <code>Pin</code> внутрь полей.
+    </p>
+  </div>
+
+  <figure>
+    <pre><span class="k">enum</span> FetchState {
+    Unresumed { id: u32 },
+    Suspend0  { conn: String, awaitee: YieldOnce },
+    Suspend1  { head: String, awaitee: YieldOnce },
+    Returned,
+    Panicked,
+}
+
+<span class="k">impl</span> Future <span class="k">for</span> FetchManual {
+    <span class="k">type</span> Output = String;
+
+    <span class="k">fn</span> poll(<span class="k">self</span>: Pin&lt;&amp;<span class="k">mut Self</span>&gt;, cx: &amp;<span class="k">mut</span> Context&lt;'_&gt;) -&gt; Poll&lt;String&gt; {
+        <span class="c">// тот самый unsafe, который компилятор пишет за нас:</span>
+        <span class="c">// мы владеем типом и знаем, что ничего не двигаем</span>
+        <span class="k">let</span> this = <span class="k">unsafe</span> { <span class="k">self</span>.get_unchecked_mut() };
+
+        <span class="k">loop</span> {                                  <span class="c">// ← почему loop: см. ниже</span>
+            <span class="k">match</span> &amp;<span class="k">mut</span> this.state {
+                FetchState::Unresumed { id } =&gt; {
+                    <span class="k">let</span> conn = format!(<span class="s">"conn-{id}"</span>);
+                    this.state = FetchState::Suspend0 { conn, awaitee: YieldOnce::new() };
+                }
+                FetchState::Suspend0 { conn, awaitee } =&gt; {
+                    <span class="k">let</span> awaitee = <span class="k">unsafe</span> { Pin::new_unchecked(awaitee) };
+                    <span class="k">match</span> awaitee.poll(cx) {
+                        Poll::Pending =&gt; <span class="k">return</span> Poll::Pending,   <span class="c">// состояние уже сохранено</span>
+                        Poll::Ready(()) =&gt; {
+                            <span class="k">let</span> head = format!(<span class="s">"{conn}/head"</span>);
+                            this.state = FetchState::Suspend1 { head, awaitee: YieldOnce::new() };
+                        }
+                    }
+                }
+                FetchState::Suspend1 { head, awaitee } =&gt; { <span class="c">/* ... то же ... */</span>
+                    this.state = FetchState::Returned;
+                    <span class="k">return</span> Poll::Ready(format!(<span class="s">"{head}+body"</span>));
+                }
+                FetchState::Returned =&gt; panic!(<span class="s">"poll после Ready — это уже баг вызывающего"</span>),
+                FetchState::Panicked =&gt; panic!(<span class="s">"future запаниковал ранее"</span>),
+            }
+        }
+    }
+}</pre>
+    <figcaption>
+      Ручная версия и <code>async fn</code> дают одинаковый результат за одинаковое
+      число <code>poll</code> (3 и 3). <b>Зачем <code>loop</code>:</b> когда вложенный future
+      возвращает <code>Ready</code>, исполнение продолжается тут же, в этом же вызове
+      <code>poll</code> — без возврата в рантайм. Поэтому цепочка мгновенно готовых
+      <code>await</code> не стоит ни одного лишнего прохода планировщика.
+    </figcaption>
+  </figure>
+
+  <div class="col">
+    <div class="note">
+      <b><code>Pending</code> — это не «ничего не произошло».</b> Это «я уже переписал
+      свой дискриминант и сохранил локалы в поля; когда waker сработает,
+      опроси меня снова, и я продолжу с этого варианта».
+      Всё «возобновление корутины» — это <code>match</code> по одному байту.
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================= -->
+<section>
+  <div class="shead">
+    <span class="mark">§&nbsp;5</span>
+    <h2>Что в стеке, а что в хипе</h2>
+  </div>
+
+  <div class="col">
+    <p>
+      Главное, что стоит усвоить: <strong>future — это обычное значение</strong>,
+      такое же как <code>u64</code> или <code>String</code>. Само по себе оно не
+      аллоцирует ничего и живёт там, куда вы его положили. Замеры сделаны
+      глобальным аллокатором-счётчиком:
+    </p>
+  </div>
+
+  <figure>
+    <div class="tw">
+      <table>
+        <caption>Аллокации при разных способах обращения с future размером 1026 B</caption>
+        <thead>
+          <tr><th>операция</th><th class="num">аллокаций</th><th class="num">байт</th><th>где живёт future</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">let f = fat();</td>
+            <td class="num dn">0</td><td class="num">0</td>
+            <td>стек вызывающего</td>
+          </tr>
+          <tr>
+            <td class="mono">pin!(fat())</td>
+            <td class="num dn">0</td><td class="num">0</td>
+            <td>тот же стековый слот, просто запрещено двигать</td>
+          </tr>
+          <tr>
+            <td class="mono">Box::pin(fat())</td>
+            <td class="num">1</td><td class="num">1026</td>
+            <td>хип, ровно по размеру; в стеке остался указатель 8 B</td>
+          </tr>
+          <tr>
+            <td class="mono">rt.block_on(fat())</td>
+            <td class="num dn">0</td><td class="num">0</td>
+            <td>стековый фрейм <code>block_on</code>, задачи нет вообще</td>
+          </tr>
+          <tr class="row-hi">
+            <td class="mono">tokio::spawn(fat())</td>
+            <td class="num">1</td><td class="num">1152</td>
+            <td>хип: заголовок задачи + future одним блоком</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption>
+      <code>block_on</code> — ноль аллокаций (замер после разогрева рантайма: самый
+      первый вызов поднимает драйверы и аллоцирует своё). Отсюда же понятно,
+      <b>почему <code>spawn</code> требует <code>'static</code></b>: future физически
+      переезжает в отдельный блок и переживает ваш стековый фрейм.
+    </figcaption>
+  </figure>
+
+  <figure>
+    <div class="split">
+      <div class="region r-stack">
+        <h4>Стек</h4>
+        <ul>
+          <li>сам future, если он создан локально и отдан в <code>block_on</code> или <code>pin!</code></li>
+          <li>указатели <code>Pin&lt;&amp;mut F&gt;</code>, <code>&amp;mut Context</code> — по 8 B</li>
+          <li>локалы, которые <em>не</em> живут через <code>await</code>:
+              они существуют только внутри одного вызова <code>poll</code></li>
+          <li>цепочка вложенных фреймов <code>poll → poll → poll</code> во время одного прохода</li>
+        </ul>
+      </div>
+      <div class="region r-heap">
+        <h4>Хип</h4>
+        <ul>
+          <li>всё, что создано через <code>Box::pin</code> или <code>tokio::spawn</code></li>
+          <li>внутренние буферы ваших данных — <code>String</code>, <code>Vec</code>
+              (в стейт-машине лежат только их 24/24 байта заголовка)</li>
+          <li><code>Waker</code> как <code>Arc</code> на блок задачи</li>
+          <li>очереди рантайма, таймеры, реактор</li>
+        </ul>
+      </div>
+    </div>
+  </figure>
+
+  <div class="col">
+    <h3>Как выглядит блок задачи tokio</h3>
+    <p>
+      Одна задача = одна аллокация. Внутри неё, по исходникам
+      <code>tokio/src/runtime/task/core.rs</code>:
+    </p>
+  </div>
+
+  <figure>
+    <div class="panel">
+      <div class="bytemap">
+        <div class="vrow">
+          <div class="vname">Cell&lt;F, S&gt;<small>одна аллокация</small></div>
+          <div class="vbar" style="grid-template-columns:26fr 48fr 26fr">
+            <div class="seg s-disc">Header</div>
+            <div class="seg s-local">Core&lt;F, S&gt;</div>
+            <div class="seg s-child">Trailer</div>
+          </div>
+        </div>
+      </div>
+      <div class="tw" style="margin-top:18px">
+        <table>
+          <thead><tr><th>часть</th><th>что внутри</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="mono" style="color:var(--disc)">Header</td>
+              <td>атомарное состояние, <code>queue_next</code> для очереди планировщика,
+                  <code>vtable</code>, <code>owner_id</code> — «горячие» данные</td>
+            </tr>
+            <tr>
+              <td class="mono" style="color:var(--stack)">Core&lt;F, S&gt;</td>
+              <td>планировщик, id задачи и <code>enum Stage { Running(F), Finished(Result&lt;Output&gt;), Consumed }</code>
+                  — <strong>ваш future живёт здесь</strong>, а после завершения то же место занимает результат</td>
+            </tr>
+            <tr>
+              <td class="mono" style="color:var(--heap)">Trailer</td>
+              <td>указатели связного списка владения, <code>Waker</code> того,
+                  кто ждёт <code>JoinHandle</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <figcaption>
+        Так как <code>Stage</code> — это enum, в блоке резервируется
+        <b>max(размер future, размер результата)</b>: место переиспользуется под
+        возвращаемое значение. А <code>JoinHandle</code> — это всего 8 байт,
+        указатель на этот же блок.
+      </figcaption>
+    </div>
+  </figure>
+
+  <figure>
+    <div class="tw">
+      <table>
+        <caption>Размер блока задачи как функция от размера future</caption>
+        <thead>
+          <tr><th class="num">future</th><th class="num">блок</th><th class="num">align</th><th class="num">накладные</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num">2</td><td class="num">128</td><td class="num">128</td><td class="num">126</td></tr>
+          <tr><td class="num">10</td><td class="num">128</td><td class="num">128</td><td class="num">118</td></tr>
+          <tr><td class="num">26</td><td class="num">256</td><td class="num">128</td><td class="num">230</td></tr>
+          <tr><td class="num">122</td><td class="num">256</td><td class="num">128</td><td class="num">134</td></tr>
+          <tr><td class="num">250</td><td class="num">384</td><td class="num">128</td><td class="num">134</td></tr>
+          <tr><td class="num">506</td><td class="num">640</td><td class="num">128</td><td class="num">134</td></tr>
+          <tr><td class="num">1018</td><td class="num">1152</td><td class="num">128</td><td class="num">134</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption>
+      Все блоки кратны 128 и выравнены на 128. Причина не в аллокаторе, а в
+      исходниках tokio: <code>struct Cell</code> помечен <code>repr(align(128))</code>
+      на x86_64/aarch64/powerpc64 — защита от false sharing, ведь <code>Header</code>
+      с атомарным состоянием дёргают сразу несколько потоков.
+      <b>Отсюда пол в 128 байт на задачу</b>, даже если ваш future — один байт.
+    </figcaption>
+  </figure>
+
+  <div class="col">
+    <div class="note warn">
+      <b>Скрытая вторая аллокация.</b> У tokio есть порог
+      <code>BOX_FUTURE_THRESHOLD</code> — <strong>2048 B в debug и 16384 B в release</strong>.
+      Future крупнее порога tokio сам оборачивает в <code>Box::pin</code>
+      <em>до</em> создания задачи, чтобы не тащить его через стек. В замерах это
+      видно как две аллокации вместо одной: <code>[4098, 128]</code> для future
+      размером 4 KiB.
+    </div>
+
+    <h3>Почему 100k задач — это не 100k стеков</h3>
+    <p>
+      Стек расходуется только <em>внутри</em> одного прохода <code>poll</code>:
+      цепочка вызовов от корня задачи до листа. Как только лист вернул
+      <code>Pending</code>, весь этот стек разматывается — состояние-то уже
+      сохранено в полях стейт-машины. Замер глубины:
+    </p>
+  </div>
+
+  <figure>
+    <div class="panel">
+      <div class="cs">
+        <div class="cs-frame">
+          <div class="fl"><b>рантайм вызывает poll корневой задачи</b><span class="depth">0 B</span></div>
+          <div class="cs-frame">
+            <div class="fl"><span>лист опрошен сразу, без вложенности</span><span class="depth">224 B</span></div>
+          </div>
+          <div class="cs-frame">
+            <div class="fl"><span>8 вложенных <code>async fn</code> через <code>Box::pin</code></span><span class="depth">2672 B</span></div>
+            <div class="cs-frame leaf">
+              <div class="fl"><b>лист: Pending → всё выше разматывается</b><span class="depth">≈306 B / уровень</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        Глубина растёт линейно по вложенности <code>await</code> и обнуляется между
+        пробуждениями. Поэтому цена приостановленной задачи — это размер её
+        стейт-машины (сотни байт), а не зарезервированный стек потока (обычно 2 MiB
+        виртуальной памяти на поток). Отсюда же и обратная сторона: очень глубокая
+        цепочка <code>await</code> внутри одного прохода вполне способна
+        переполнить стек.
+      </figcaption>
+    </div>
+  </figure>
+
+  <div class="col">
+    <h3>Waker: пробуждение не аллоцирует</h3>
+    <p>
+      <code>Waker</code> — это 16 байт: указатель на данные и указатель на vtable
+      (<code>Context</code> целиком — 32 байта). У tokio данные — это тот же блок
+      задачи, поэтому <code>waker.clone()</code> — просто инкремент счётчика
+      ссылок. Замер: <strong>100 клонирований — ноль аллокаций</strong>.
+      А «разбудить» — значит положить указатель на задачу в очередь планировщика;
+      поле <code>queue_next</code> в <code>Header</code> существует именно для этого,
+      чтобы очередь не требовала своей памяти.
+    </p>
+  </div>
+</section>
+
+<!-- ================================================================= -->
+<section>
+  <div class="shead">
+    <span class="mark">§&nbsp;6</span>
+    <h2>Минимальный размер и правила роста</h2>
+  </div>
+
+  <div class="col">
+    <p>
+      Теперь можно ответить на вопрос про минимум точно.
+      <strong>Минимальный future, сгенерированный компилятором, — 1 байт.</strong>
+    </p>
+  </div>
+
+  <figure>
+    <div class="twoup">
+      <div>
+        <h4>пустой async fn</h4>
+        <pre><span class="k">async fn</span> nop() {}</pre>
+      </div>
+      <div>
+        <h4>его layout целиком</h4>
+        <pre class="term">1 bytes, alignment: 1 bytes
+  discriminant: 1 bytes
+  variant Unresumed: 0 bytes
+  variant Returned:  0 bytes
+  variant Panicked:  0 bytes</pre>
+      </div>
+    </div>
+    <figcaption>
+      Ни одного <code>Suspend</code>-варианта — приостанавливаться негде.
+      Остаётся только дискриминант. <b>Ноль байт невозможен:</b> различить три
+      состояния (не запускался / завершился / запаниковал) в нуле бит нельзя,
+      а минимальная адресуемая единица — байт.
+    </figcaption>
+  </figure>
+
+  <div class="col">
+    <p>
+      Важная оговорка: этот пол в 1 байт — про <em>сгенерированные</em> future.
+      Написанный руками <code>impl Future</code> может быть настоящим ZST:
+      <code>size_of_val(&amp;std::future::pending::&lt;()&gt;())</code> — <strong>0 байт</strong>,
+      потому что там нет никакого состояния и нечего различать.
+    </p>
+  </div>
+
+  <figure>
+    <div class="tw">
+      <table>
+        <caption>От чего размер зависит, а от чего нет — замеры</caption>
+        <thead>
+          <tr><th>конструкция</th><th class="num">байт</th><th>вывод</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">async {}</td><td class="num">1</td><td>только дискриминант</td></tr>
+          <tr><td class="mono">async { nop().await }</td><td class="num">2</td><td>+1 байт на вложенный future в слоте</td></tr>
+          <tr><td class="mono">async { nop().await; nop().await }</td><td class="num">2</td><td class="dn">две точки await, слот переиспользован</td></tr>
+          <tr><td class="mono">[u8; 1024] создан <em>после</em> await</td><td class="num">2</td><td class="dn">в стейт-машину не попадает вовсе</td></tr>
+          <tr class="row-hi"><td class="mono">[u8; 1024] живёт <em>через</em> await</td><td class="num">1026</td><td class="up">вот что реально растит размер</td></tr>
+          <tr><td class="mono">два буфера в непересекающихся скоупах</td><td class="num">1026</td><td class="dn">max, а не сумма</td></tr>
+          <tr><td class="mono">два буфера через один await</td><td class="num">2050</td><td class="up">оба живы одновременно → сумма</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </figure>
+
+  <div class="col">
+    <h3>Вложенность складывается — и это главная причина раздутых future</h3>
+    <p>
+      Вложенный future не за указателем, а <em>полем внутри</em> родителя.
+      Пока дочерний future жив через <code>await</code>, его байты сидят в родителе:
+    </p>
+  </div>
+
+  <figure>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>цепочка</th><th class="num">байт</th><th>дельта</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">leaf() — держит 1 KiB через await</td><td class="num">1026</td><td>—</td></tr>
+          <tr><td class="mono">level1 = leaf().await</td><td class="num">1027</td><td>+1 (свой дискриминант)</td></tr>
+          <tr><td class="mono">level2 = level1().await</td><td class="num">1028</td><td>+1</td></tr>
+          <tr><td class="mono">level3 = level2().await</td><td class="num">1029</td><td>+1</td></tr>
+          <tr><td class="mono">leaf().await; leaf().await;</td><td class="num">1027</td><td class="dn">последовательно — слот один</td></tr>
+          <tr class="row-hi"><td class="mono">join!(leaf(), leaf())</td><td class="num">2088</td><td class="up">одновременно — оба целиком</td></tr>
+          <tr><td class="mono">Box::pin(leaf()).await</td><td class="num">24</td><td class="dn">косвенность разрывает цепочку</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <figcaption>
+      Один <code>Box::pin</code> на входе в задачу держит <b>весь стек вызовов
+      целиком</b> — размер корневого future равен сумме всех одновременно
+      приостановленных кадров. <code>join!</code> и <code>select!</code> держат все
+      ветки сразу, поэтому суммируют. Последовательные <code>await</code> —
+      переиспользуют слот.
+    </figcaption>
+  </figure>
+
+  <div class="col">
+    <h3>Две неочевидные причины, по которым future больше, чем вы ожидали</h3>
+  </div>
+
+  <figure>
+    <div class="twoup">
+      <div>
+        <h4>1. Деструктор продлевает жизнь до конца скоупа</h4>
+        <pre><span class="k">let</span> conn = format!(<span class="s">"conn-{id}"</span>);
+first().<span class="k">await</span>;
+<span class="k">let</span> head = format!(<span class="s">"{conn}/head"</span>);
+second().<span class="k">await</span>;  <span class="c">// conn ВСЁ ЕЩЁ в стейте:</span>
+              <span class="c">// его надо будет дропнуть</span></pre>
+        <p style="font-size:0.9rem;color:var(--ink-2);margin-top:10px">
+          Борроу-чекер считает <code>conn</code> мёртвым после третьей строки,
+          но у <code>String</code> есть <code>Drop</code> — значение обязано
+          дожить до конца скоупа. Слот занят через <em>оба</em> await.
+        </p>
+        <p style="font-size:0.9rem;color:var(--ink-2);margin-top:8px">
+          Лечится вложенным скоупом. А вот явный <code>drop(conn)</code>
+          <strong>не помогает</strong>: слот остаётся, и вдобавок появляется
+          флаг дропа — в layout это видно как лишний
+          <code>local ..coroutine_field4: bool</code>.
+        </p>
+      </div>
+      <div>
+        <h4>2. Утёкший адрес делает анализ консервативным</h4>
+        <pre><span class="c">// адрес не утекал → future 2 B</span>
+<span class="k">let</span> a = Buf([<span class="n">7</span>; <span class="n">1024</span>]);
+drop(a);
+nop().<span class="k">await</span>;
+
+<span class="c">// адрес ушёл наружу → future 1026 B</span>
+<span class="k">let</span> a = Buf([<span class="n">7</span>; <span class="n">1024</span>]);
+black_box(&amp;a);   <span class="c">// ← вот здесь</span>
+drop(a);
+nop().<span class="k">await</span>;</pre>
+        <p style="font-size:0.9rem;color:var(--ink-2);margin-top:10px">
+          Один и тот же мёртвый буфер: в первом случае в стейт-машину не
+          попадает, во втором занимает килобайт. Стоит адресу переменной уйти
+          за пределы анализа — компилятор оставляет ей слот на всякий случай.
+        </p>
+        <p style="font-size:0.9rem;color:var(--ink-2);margin-top:8px">
+          Отсюда классическая жалоба «я ничего не держал через <code>await</code>,
+          а future раздулся».
+        </p>
+      </div>
+    </div>
+  </figure>
+</section>
+
+<!-- ================================================================= -->
+<section>
+  <div class="shead">
+    <span class="mark">§&nbsp;7</span>
+    <h2>Что с этим делать</h2>
+  </div>
+
+  <div class="col">
+    <div class="rules">
+      <div class="rule">
+        <div>
+          <h3>Держите через <code>await</code> как можно меньше</h3>
+          <p>
+            Размер стейт-машины определяет только то, что живо в момент
+            приостановки. Большой буфер, созданный <em>после</em> последнего
+            <code>await</code>, стоит ноль байт стейта.
+          </p>
+          <div class="ev">замер: 1026 B → 2 B при переносе буфера за await</div>
+        </div>
+      </div>
+      <div class="rule">
+        <div>
+          <h3>Оборачивайте тяжёлые значения в скоупы, а не в <code>drop()</code></h3>
+          <p>
+            Значение с деструктором занимает слот до конца своего скоупа,
+            независимо от последнего использования. Вложенный блок
+            освобождает слот; явный <code>drop</code> — нет, он лишь добавляет
+            флаг дропа.
+          </p>
+          <div class="ev">проверено по -Zprint-type-sizes: слот .conn исчезает из Suspend1 только при скоупе</div>
+        </div>
+      </div>
+      <div class="rule">
+        <div>
+          <h3><code>Box::pin</code> в середине глубокой цепочки</h3>
+          <p>
+            Вложенные future складываются. Один <code>Box::pin</code> заменяет
+            весь поддерево на 16 байт указателя — ценой одной аллокации.
+            Именно так режут раздувание в рекурсивных async-функциях
+            (где без бокса вообще не скомпилируется: тип был бы бесконечным).
+          </p>
+          <div class="ev">замер: 1026 B → 24 B в родителе</div>
+        </div>
+      </div>
+      <div class="rule">
+        <div>
+          <h3>Считайте <code>join!</code> и <code>select!</code> суммой</h3>
+          <p>
+            Все ветки живут одновременно, поэтому их размеры складываются.
+            Для широкого веера лучше <code>JoinSet</code> или <code>FuturesUnordered</code>:
+            там каждая ветка — отдельная задача или отдельный бокс.
+          </p>
+          <div class="ev">замер: две ветки по 1026 B → 2088 B против 1027 B последовательно</div>
+        </div>
+      </div>
+      <div class="rule">
+        <div>
+          <h3>Смотрите на реальные числа, а не на догадки</h3>
+          <p>
+            <code>size_of_val(&amp;fut)</code> в тесте, а для разбора по полям —
+            <code>cargo +nightly rustc -- -Zprint-type-sizes</code>. Он показывает
+            имена локалов и точные смещения; без него причина раздутия
+            почти всегда угадывается неверно.
+          </p>
+          <div class="ev">именно так найдены оба неочевидных случая из §&nbsp;6</div>
+        </div>
+      </div>
+      <div class="rule">
+        <div>
+          <h3>Помните про пол в 128 байт на задачу</h3>
+          <p>
+            Крошечная задача не бесплатна: блок выравнивается на кэш-линию.
+            Если задач очень много и каждая делает мало работы,
+            дешевле пакетировать работу, чем спавнить задачу на элемент.
+          </p>
+          <div class="ev">замер: future 2 B → блок 128 B, align 128</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================= -->
+<section>
+  <div class="shead">
+    <span class="mark">§&nbsp;8</span>
+    <h2>Справочные размеры</h2>
+  </div>
+
+  <figure>
+    <div class="tw">
+      <table>
+        <caption>Замерено на aarch64, tokio 1.53.1, debug</caption>
+        <thead><tr><th>тип</th><th class="num">байт</th><th>комментарий</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">Poll&lt;()&gt;</td><td class="num">1</td><td>только дискриминант</td></tr>
+          <tr><td class="mono">Poll&lt;u64&gt;</td><td class="num">16</td><td>8 данных + выравнивание под дискриминант</td></tr>
+          <tr><td class="mono">Poll&lt;Box&lt;u8&gt;&gt;</td><td class="num">8</td><td>ниша: <code>Pending</code> кодируется нулевым указателем</td></tr>
+          <tr><td class="mono">Waker</td><td class="num">16</td><td>data + vtable</td></tr>
+          <tr><td class="mono">Context&lt;'_&gt;</td><td class="num">32</td><td>передаётся по <code>&amp;mut</code>, то есть 8</td></tr>
+          <tr><td class="mono">&amp;mut F</td><td class="num">8</td><td>—</td></tr>
+          <tr><td class="mono">Pin&lt;&amp;mut F&gt;</td><td class="num">8</td><td>repr(transparent): ровно столько же</td></tr>
+          <tr><td class="mono">Pin&lt;Box&lt;dyn Future&gt;&gt;</td><td class="num">16</td><td>толстый указатель</td></tr>
+          <tr><td class="mono">tokio::task::JoinHandle&lt;()&gt;</td><td class="num">8</td><td>указатель на блок задачи</td></tr>
+          <tr><td class="mono">tokio::time::Sleep</td><td class="num">112</td><td>запись таймера внутри</td></tr>
+          <tr><td class="mono">tokio::sync::Mutex&lt;u64&gt;</td><td class="num">48</td><td>—</td></tr>
+          <tr><td class="mono">std::future::pending::&lt;()&gt;()</td><td class="num">0</td><td>настоящий ZST — так умеет только рукописный impl</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </figure>
+
+  <details>
+    <summary>Как воспроизвести все замеры</summary>
+    <pre><span class="c"># размеры и правила роста</span>
+cargo run -p async_await --bin future_sizes
+
+<span class="c"># Pin: самоссылка, mem::swap, ручная десугаризация, Unpin, dyn Future</span>
+cargo run -p async_await --bin pin_why
+
+<span class="c"># когда перемещать можно, когда нельзя, и что делает work stealing</span>
+cargo run -p async_await --bin moving_futures
+
+<span class="c"># аллокации: стек против хипа, блок задачи tokio, глубина стека</span>
+cargo run -p async_await --bin where_memory
+
+<span class="c"># сырые байты стейт-машины по состояниям</span>
+cargo run -p async_await --bin state_machine_layout
+
+<span class="c"># разбор layout по вариантам и локалам (нужен nightly)</span>
+cargo +nightly rustc -p async_await --bin future_sizes -- -Zprint-type-sizes</pre>
+  </details>
+</section>
+
+<footer>
+  <p>
+    Все числа получены замерами на aarch64-apple-darwin, rustc 1.97.1 stable,
+    tokio 1.53.1, профиль debug. Разбор layout — rustc 1.99-nightly с
+    <code>-Zprint-type-sizes</code>. Layout корутин не стабилизирован: имена
+    вариантов, смещения и решения о переиспользовании слотов могут меняться
+    между версиями компилятора. Порог <code>BOX_FUTURE_THRESHOLD</code> и
+    <code>repr(align(128))</code> на <code>Cell</code> — из исходников
+    <code>tokio/src/runtime/</code> версии 1.53.1.
+  </p>
+</footer>
+
+</div>
