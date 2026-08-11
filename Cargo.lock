@@ -863,6 +863,20 @@ name = "practice_on_associated_types_2"
 version = "0.1.0"
 
 [[package]]
+name = "practice_on_async_await_1"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+]
+
+[[package]]
+name = "practice_on_async_await_2"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+]
+
+[[package]]
 name = "practice_on_borrowing_1"
 version = "0.1.0"
 
