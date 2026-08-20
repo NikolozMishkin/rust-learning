@@ -1,0 +1,10 @@
+[package]
+name = "forcing_variables_to_use_references"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
