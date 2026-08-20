@@ -12,8 +12,21 @@
 // &variable: SomeType
 // &mut variable: SomeType
 
-fn some_fn_1(&x: &i32) {}
+fn some_fn_1(&x: &i32) {
+    let y = x;
+}
+
 fn some_fn_2(&mut x: &mut i32) {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+fn my_fn(Point { x, y }: &Point) {
+    println!("x: {x}, y: {y}");
+}
 
 fn main() {
     let mut x = 42;
@@ -34,6 +47,8 @@ fn main() {
     let mut x = 42;
     let y = &&x;
     let &z = y; // let z = &x;
+
+    some_fn_2(&mut x);
 
     // &z = &&i32
     // z = &i32
