@@ -1,0 +1,16 @@
+// Two types of outputs
+// 	- Normal Output -> stdout
+// 	- Error Output -> stderr
+
+fn main() {
+    println!("Program Output");
+    let x: Option<i32> = None;
+    // x.unwrap();
+
+    eprint!("Error 1: Error Message 1");
+    eprintln!("Error 2: Error Message 2");
+    dbg!(x);
+
+    println!("This is standard output (stdout)");
+    eprint!("This is standard error (stderr)");
+}

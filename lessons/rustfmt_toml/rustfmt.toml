@@ -1,0 +1,4 @@
+max_width = 100
+reorder_imports = true
+comment_width = 100
+use_field_init_shorthand = true

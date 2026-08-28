@@ -1,0 +1,10 @@
+[package]
+name = "debugging_with_panics"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
