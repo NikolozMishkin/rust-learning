@@ -45,7 +45,6 @@ fn main() {
 
     set_hook(Box::new(|info| {
         let message = info.payload().downcast_ref::<&str>();
-
         match message {
             Some(&"Database error") => println!("Panicked due to DB Error"),
             Some(&"Config missing") => println!("Panicked due to missing configuration info"),
@@ -54,5 +53,5 @@ fn main() {
         }
     }));
 
-    panic!();
+    panic!("Main fn panicked");
 }
