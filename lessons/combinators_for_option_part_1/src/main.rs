@@ -2,8 +2,8 @@ fn main() {
     // 1. map
     let name: Option<String> = None; // Some("alice");
     let upper = name.map(|s| {
-        s.to_uppercase();
         print!("Inside the closure");
+        s.to_uppercase()
     });
 
     // 2. and_then
@@ -21,7 +21,7 @@ fn main() {
 
     let result = input
         .and_then(|x| if x % 2 == 0 { Some(x + 5) } else { None })
-        .and_then(|x| divide_by_two_if_even(x));
+        .and_then(|x| if x % 2 == 0 { Some(x / 2) } else { None });
 }
 
 fn add_five_if_even(n: u32) -> Option<u32> {

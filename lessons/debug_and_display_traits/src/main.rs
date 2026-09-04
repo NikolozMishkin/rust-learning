@@ -70,7 +70,7 @@ fn main() {
         blue: 255,
     };
 
-    println!("{:?}", magenta);
+    println!("{:#?}", magenta);
 
     println!("{}", magenta);
 }
