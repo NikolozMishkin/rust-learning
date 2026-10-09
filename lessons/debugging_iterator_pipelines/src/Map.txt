@@ -1,0 +1,2 @@
+Map<IntoIter<&str, Global>, fn trim(&str) -> &str>
+Map<Filter<Map<IntoIter<&str, Global>, fn trim(&str) -> &str>, impl FnMut(&&str) -> bool>, impl FnMut(&str) -> u32>

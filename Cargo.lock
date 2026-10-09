@@ -479,6 +479,10 @@ name = "debugging_in_vs_code"
 version = "0.1.0"
 
 [[package]]
+name = "debugging_iterator_pipelines"
+version = "0.1.0"
+
+[[package]]
 name = "debugging_with_panics"
 version = "0.1.0"
 
