@@ -1,0 +1,10 @@
+[package]
+name = "background_for_variance_lifetime_bounds"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
