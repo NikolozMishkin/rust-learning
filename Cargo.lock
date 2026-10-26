@@ -376,6 +376,10 @@ name = "conditionals"
 version = "0.1.0"
 
 [[package]]
+name = "contravariance"
+version = "0.1.0"
+
+[[package]]
 name = "control_flow"
 version = "0.1.0"
 
@@ -948,6 +952,14 @@ name = "intoIter"
 version = "0.1.0"
 
 [[package]]
+name = "invariance_part_1"
+version = "0.1.0"
+
+[[package]]
+name = "invariance_part_2"
+version = "0.1.0"
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1223,6 +1235,10 @@ version = "0.1.0"
 
 [[package]]
 name = "optionaly_sized_and_generic_parameters"
+version = "0.1.0"
+
+[[package]]
+name = "orphan_rule"
 version = "0.1.0"
 
 [[package]]
@@ -2104,6 +2120,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
+name = "subtyping_and_variancce_covariance"
+version = "0.1.0"
+
+[[package]]
 name = "supplimentary_lecture_method_chaining_constraints"
 version = "0.1.0"
 
@@ -2325,6 +2345,10 @@ version = "0.1.0"
 
 [[package]]
 name = "trait_objects_coercion"
+version = "0.1.0"
+
+[[package]]
+name = "trait_objects_limitations_multiple_traits"
 version = "0.1.0"
 
 [[package]]
