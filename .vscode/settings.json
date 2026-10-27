@@ -1,3 +1,4 @@
 {
-  "rust-analyzer.rustup.toolchain": "nightly"
+  "rust-analyzer.rustup.toolchain": "nightly",
+  "liveServer.settings.port": 5501
 }

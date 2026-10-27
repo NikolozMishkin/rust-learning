@@ -2348,6 +2348,14 @@ name = "trait_objects_coercion"
 version = "0.1.0"
 
 [[package]]
+name = "trait_objects_limitations_associated_types"
+version = "0.1.0"
+
+[[package]]
+name = "trait_objects_limitations_method_with_generics"
+version = "0.1.0"
+
+[[package]]
 name = "trait_objects_limitations_multiple_traits"
 version = "0.1.0"
 

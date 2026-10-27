@@ -1,4 +1,6 @@
 use std::mem::size_of;
+
+mod layouts;
 trait Shape {
     fn print(&self);
     fn my_super_fn(&self);
@@ -156,4 +158,8 @@ fn main() {
     link.my_super_fn();
     let aa = &5;
     let bbb = "adsfdsafdsa";
+
+    layouts::closures();
+    layouts::allocations();
+    layouts::struct_and_array_refs();
 }

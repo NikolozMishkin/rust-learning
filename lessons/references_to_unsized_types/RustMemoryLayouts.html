@@ -394,6 +394,73 @@ tbody tr:last-child td { border-bottom: none; }
 .reg.padding .reg-name { opacity: 0.4; font-style: italic; }
 .reg.padding .reg-content { opacity: 0.4; font-style: italic; }
 
+/* keep labels and byte counts apart in narrow boxes */
+.reg-content, .mem-box-header { gap: 10px; }
+
+/* ── Code block ───────────────────────────────────────── */
+.code {
+  margin: 0 16px 14px;
+  padding: 10px 12px;
+  background: var(--ground);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--text);
+}
+.code .c  { color: var(--muted); font-style: italic; }
+.code .k  { color: #C084FC; }
+.code .t  { color: #FBBF24; }
+.code .s  { color: var(--ro-glow); }
+
+/* ── Section intro / callout ──────────────────────────── */
+.intro {
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 13px;
+  margin: -6px 0 16px;
+  max-width: 720px;
+}
+.intro code, .card-note code, .callout code { font-family: var(--mono); color: var(--text); }
+.callout {
+  border-left: 3px solid var(--stack-glow);
+  background: var(--surface);
+  padding: 10px 14px;
+  margin: 0 0 14px;
+  font-family: var(--sans);
+  font-size: 13px;
+  border-radius: 0 6px 6px 0;
+}
+.callout.heap { border-left-color: var(--heap-glow); }
+.callout.ro   { border-left-color: var(--ro-glow); }
+
+/* ── Array cells with offsets ─────────────────────────── */
+.cells { display: flex; flex-wrap: wrap; gap: 0; padding: 8px 10px 4px; }
+.cell {
+  border: 1px solid var(--stack-border);
+  margin-left: -1px;
+  min-width: 52px;
+  text-align: center;
+  padding: 4px 6px 2px;
+  font-size: 12px;
+  color: var(--text);
+}
+.cell small { display: block; font-size: 9px; color: var(--muted); }
+.cell.hl { background: rgba(249,115,22,0.18); }
+.cell.pad { opacity: 0.4; font-style: italic; }
+.heap .cell { border-color: var(--heap-border); }
+.heap .cell.hl { background: rgba(56,189,248,0.18); }
+.ptr-list { padding: 4px 10px 10px; font-size: 11px; color: var(--muted); }
+.ptr-list div { padding: 2px 0; }
+.ptr-list b { color: var(--stack-glow); font-weight: 600; }
+
+/* ── Chain (multi-hop) row ────────────────────────────── */
+.chain { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 12px; padding: 16px; }
+.chain .stack-col { display: flex; flex-direction: column; gap: 10px; }
+.label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
@@ -411,7 +478,8 @@ tbody tr:last-child td { border-bottom: none; }
     <span class="rust">Rust</span> Memory Layouts<span class="dim">.</span>
   </h1>
   <p class="hero-sub">Stack &amp; heap breakdown for every type from <code>main.rs</code> lines 98–129.
-    Sizes, pointers, lengths, and capacities shown per field.</p>
+    Sizes, pointers, lengths, and capacities shown per field.
+    Closures, nested allocations and refs to structs/arrays — <code>src/layouts.rs</code> (<code>cargo run</code>).</p>
   <div class="legend">
     <div class="legend-item"><div class="legend-dot stack"></div> Stack</div>
     <div class="legend-item"><div class="legend-dot heap"></div> Heap</div>
@@ -879,6 +947,791 @@ tbody tr:last-child td { border-bottom: none; }
     </div>
   </div>
 
+  <!-- ══════════════════════════════════════════════════
+       CLOSURES  (src/layouts.rs → closures())
+       ══════════════════════════════════════════════════ -->
+  <div class="section-head"><h2>Closures — анонимная структура + impl Fn*</h2></div>
+  <p class="intro">Замыкание — это не «функция в куче». Компилятор генерирует уникальную безымянную
+    структуру, в поля которой кладёт захваченные переменные, и реализует для неё <code>Fn</code> /
+    <code>FnMut</code> / <code>FnOnce</code>. Размер замыкания = размер этой структуры. Сама по себе
+    она живёт <b>на стеке</b>; в кучу она попадает только если вы явно положите её в <code>Box</code>,
+    <code>Rc</code>, <code>Vec</code>…</p>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">|| a as i64 + b</span>
+      <span class="type-size-badge">16 bytes</span>
+    </div>
+<pre class="code"><span class="k">let</span> a = <span class="t">10i32</span>;
+<span class="k">let</span> b = <span class="t">20i64</span>;
+<span class="k">let</span> by_ref = || a <span class="k">as</span> i64 + b;
+
+<span class="c">// компилятор генерирует примерно это:</span>
+<span class="k">struct</span> <span class="t">__Closure</span>&lt;'a&gt; { a: &amp;'a i32, b: &amp;'a i64 }
+<span class="k">impl</span> Fn() -&gt; i64 <span class="k">for</span> __Closure { <span class="k">fn</span> call(&amp;self) -&gt; i64 { *self.a <span class="k">as</span> i64 + *self.b } }</pre>
+    <div class="mem-layout">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · by_ref</span><span class="mem-box-total">16 B</span></div>
+        <div class="reg"><div class="reg-name">a</div><div class="reg-content"><span>&amp;i32</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">b</div><div class="reg-content"><span>&amp;i64</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · locals</span><span class="mem-box-total">12 B</span></div>
+        <div class="reg"><div class="reg-name">a</div><div class="reg-content"><span>10</span><span class="reg-bytes">4 B</span></div></div>
+        <div class="reg"><div class="reg-name">b</div><div class="reg-content"><span>20</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">Захват по ссылке — каждая переменная превращается в 8-байтный указатель, независимо от её размера.
+      С <code>move</code> то же замыкание хранило бы копии: <code>{ b: i64, a: i32 }</code> + 4 B padding = те же 16 B.</p>
+  </div>
+
+  <div class="compact-grid">
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">|x| x * 2</span><span class="type-size-badge">0 bytes</span></div>
+      <div class="zst-badge">ZST — ничего не захвачено</div>
+      <p class="card-note">Коэрсится в <code>fn(i32) -&gt; i32</code> (8 B, указатель на код в .text).</p>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">make_adder(5)</span><span class="type-size-badge">4 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">4 B</span></div>
+          <div class="reg"><div class="reg-name">n</div><div class="reg-content"><span>i32 = 5</span><span class="reg-bytes">4 B</span></div></div>
+        </div>
+      </div>
+      <p class="card-note"><code>impl Fn</code> — тип известен статически, без кучи и vtable.</p>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">|| counter += 1</span><span class="type-size-badge">8 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">counter</div><div class="reg-content"><span>&amp;mut u32</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+      <p class="card-note"><code>FnMut</code> — уникальная ссылка, данные снаружи.</p>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">move || big.len()</span><span class="type-size-badge">100 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">100 B</span></div>
+          <div class="reg"><div class="reg-name">big</div><div class="reg-content"><span>[u8; 100] копия</span><span class="reg-bytes">100 B</span></div></div>
+        </div>
+      </div>
+      <p class="card-note">Ловушка: <code>move</code> копирует весь массив в замыкание.</p>
+    </div>
+
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">move || r.len()+v.len()</span><span class="type-size-badge">32 bytes</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">32 B</span></div>
+          <div class="reg"><div class="reg-name">r</div><div class="reg-content"><span>&amp;[u8; 100]</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">v</div><div class="reg-content"><span>Vec&lt;u8&gt;</span><span class="reg-bytes">24 B</span></div></div>
+        </div>
+      </div>
+      <p class="card-note">Решение ловушки: заранее взять <code>let r = &amp;big;</code> и move-нуть ссылку.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">move || name.len() + nums.len()</span>
+      <span class="type-size-badge">48 bytes stack + 2 heap buffers</span>
+    </div>
+<pre class="code"><span class="k">let</span> name = String::from(<span class="s">"Ferris"</span>);
+<span class="k">let</span> nums = vec![<span class="t">1</span>, <span class="t">2</span>, <span class="t">3</span>];
+<span class="k">let</span> owning = <span class="k">move</span> || name.len() + nums.len();   <span class="c">// { name: String, nums: Vec&lt;i32&gt; }</span></pre>
+    <div class="mem-layout" style="flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>Stack · owning.name</span><span class="mem-box-total">24 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ heap</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>6</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">cap</div><div class="reg-content"><span>6</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+        <div class="arrow-connector" style="margin-top:0"><span>──►</span></div>
+        <div class="mem-box heap">
+          <div class="mem-box-header"><span>Heap</span><span class="mem-box-total">6 B</span></div>
+          <div class="reg wide"><div class="reg-content"><span>F · e · r · r · i · s</span></div></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>Stack · owning.nums</span><span class="mem-box-total">24 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ heap</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>3</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">cap</div><div class="reg-content"><span>3</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+        <div class="arrow-connector" style="margin-top:0"><span>──►</span></div>
+        <div class="mem-box heap">
+          <div class="mem-box-header"><span>Heap</span><span class="mem-box-total">12 B</span></div>
+          <div class="reg wide"><div class="reg-content"><span>1 | 2 | 3</span></div></div>
+        </div>
+      </div>
+    </div>
+    <p class="card-note"><code>move</code> перемещает заголовки String/Vec (ptr+len+cap) внутрь структуры замыкания.
+      Буферы в куче <b>не копируются</b> и остаются на месте — меняется только владелец. Замыкание само по-прежнему на стеке.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Box&lt;dyn Fn(&amp;str) -&gt; String&gt;</span>
+      <span class="type-size-badge">16 bytes stack + heap</span>
+    </div>
+<pre class="code"><span class="k">fn</span> make_boxed(prefix: String) -&gt; Box&lt;<span class="k">dyn</span> Fn(&amp;str) -&gt; String&gt; {
+    Box::new(<span class="k">move</span> |s| format!(<span class="s">"{prefix}{s}"</span>))   <span class="c">// { prefix: String } → в кучу</span>
+}</pre>
+    <div class="mem-layout">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">16 B</span></div>
+        <div class="reg"><div class="reg-name">data</div><div class="reg-content"><span>→ closure</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">vtable</div><div class="reg-content"><span>→ .rodata</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="dyn-arrow">
+        <div class="dyn-arrow-row"><span class="arr">──►</span>
+          <div class="mem-box heap">
+            <div class="mem-box-header"><span>Heap · closure</span><span class="mem-box-total">24 B</span></div>
+            <div class="reg"><div class="reg-name">prefix</div><div class="reg-content"><span>ptr·len·cap</span><span class="reg-bytes">24 B</span></div></div>
+          </div>
+          <span class="arr">──►</span>
+          <div class="mem-box heap">
+            <div class="mem-box-header"><span>Heap</span></div>
+            <div class="reg wide"><div class="reg-content"><span>"&gt;&gt; "</span></div></div>
+          </div>
+        </div>
+        <div class="dyn-arrow-row"><span class="arr">──►</span>
+          <div class="vtable-box">
+            <div class="mem-box-header"><span>vtable (.rodata)</span></div>
+            <div class="vtable-entry"><span class="vtable-fn">drop_in_place</span><span class="vtable-sz">→ drops prefix</span></div>
+            <div class="vtable-entry"><span class="vtable-fn">size = 24</span><span class="vtable-sz">align = 8</span></div>
+            <div class="vtable-entry"><span class="vtable-fn">call_once</span><span class="vtable-sz">8 B</span></div>
+            <div class="vtable-entry"><span class="vtable-fn">call_mut</span><span class="vtable-sz">8 B</span></div>
+            <div class="vtable-entry"><span class="vtable-fn">call</span><span class="vtable-sz">8 B</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="card-note">Две аллокации: структура замыкания (24 B) и буфер строки. Нужно, когда тип замыкания не может
+      быть известен статически: разные замыкания в одной коллекции, рекурсивные типы, поле структуры без generic.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Vec&lt;Box&lt;dyn Fn(i32) -&gt; i32&gt;&gt;</span>
+      <span class="type-size-badge">24 B stack + 48 B buffer + objects</span>
+    </div>
+<pre class="code"><span class="k">let</span> handlers: Vec&lt;Box&lt;<span class="k">dyn</span> Fn(i32) -&gt; i32&gt;&gt; = vec![
+    Box::new(|x| x + <span class="t">1</span>),        <span class="c">// ZST → Box НЕ аллоцирует, ptr = 0x1 (dangling)</span>
+    Box::new(<span class="k">move</span> |x| x * a),   <span class="c">// { a: i32 } → 4 B в куче</span>
+    Box::new(make_adder(<span class="t">100</span>)),  <span class="c">// { n: i32 } → 4 B в куче</span>
+];</pre>
+    <div class="chain">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · Vec</span><span class="mem-box-total">24 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>3</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">cap</div><div class="reg-content"><span>3</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap · buffer</span><span class="mem-box-total">3 × 16 B</span></div>
+        <div class="reg"><div class="reg-name">[0]</div><div class="reg-content"><span>0x1 · vtable₀</span><span class="reg-bytes">16 B</span></div></div>
+        <div class="reg"><div class="reg-name">[1]</div><div class="reg-content"><span>data · vtable₁</span><span class="reg-bytes">16 B</span></div></div>
+        <div class="reg"><div class="reg-name">[2]</div><div class="reg-content"><span>data · vtable₂</span><span class="reg-bytes">16 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="stack-col">
+        <div class="mem-box heap">
+          <div class="mem-box-header"><span>[0] ZST</span><span class="mem-box-total">0 B</span></div>
+          <div class="reg wide"><div class="reg-content"><span>нет аллокации</span></div></div>
+        </div>
+        <div class="mem-box heap">
+          <div class="mem-box-header"><span>[1] heap</span><span class="mem-box-total">4 B</span></div>
+          <div class="reg"><div class="reg-name">a</div><div class="reg-content"><span>10</span><span class="reg-bytes">4 B</span></div></div>
+        </div>
+        <div class="mem-box heap">
+          <div class="mem-box-header"><span>[2] heap</span><span class="mem-box-total">4 B</span></div>
+          <div class="reg"><div class="reg-name">n</div><div class="reg-content"><span>100</span><span class="reg-bytes">4 B</span></div></div>
+        </div>
+      </div>
+    </div>
+    <p class="card-note">Три разных vtable: у каждого замыкания свой анонимный тип, а значит своя таблица в .rodata.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">&amp;dyn Fn() -&gt; usize</span>
+      <span class="type-size-badge">16 bytes, без кучи</span>
+    </div>
+    <div class="mem-layout">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · dyn_ref</span><span class="mem-box-total">16 B</span></div>
+        <div class="reg"><div class="reg-name">data</div><div class="reg-content"><span>→ owning</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">vtable</div><div class="reg-content"><span>→ .rodata</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · owning</span><span class="mem-box-total">48 B</span></div>
+        <div class="reg"><div class="reg-name">name</div><div class="reg-content"><span>String</span><span class="reg-bytes">24 B</span></div></div>
+        <div class="reg"><div class="reg-name">nums</div><div class="reg-content"><span>Vec&lt;i32&gt;</span><span class="reg-bytes">24 B</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">Динамическая диспетчеризация не требует кучи: <code>&amp;dyn Fn</code> может указывать на замыкание на стеке
+      (в выводе программы адреса <code>&amp;owning</code> и <code>&amp;dyn Fn data</code> совпадают).</p>
+  </div>
+
+  <div class="table-wrap" style="margin-bottom:8px">
+    <table>
+      <thead><tr><th>Как используется переменная</th><th>Режим захвата</th><th>Поле в структуре</th><th>Трейт</th></tr></thead>
+      <tbody>
+        <tr><td>только читается</td><td class="td-cat">&amp;T</td><td class="td-stack">8 B</td><td>Fn</td></tr>
+        <tr><td>изменяется</td><td class="td-cat">&amp;mut T</td><td class="td-stack">8 B</td><td>FnMut</td></tr>
+        <tr><td>перемещается внутрь (drop, return)</td><td class="td-cat">T</td><td class="td-stack">size_of::&lt;T&gt;()</td><td>FnOnce</td></tr>
+        <tr><td><code>move</code> у замыкания</td><td class="td-cat">T (всё)</td><td class="td-stack">size_of::&lt;T&gt;()</td><td>по использованию</td></tr>
+        <tr><td>ничего не захвачено</td><td class="td-cat">—</td><td class="td-stack">0 B (ZST)</td><td>Fn + fn ptr</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       ALLOCATIONS  (src/layouts.rs → allocations())
+       ══════════════════════════════════════════════════ -->
+  <div class="section-head"><h2>Сложные аллокации — Box, Rc, вложенные буферы</h2></div>
+  <p class="intro">Правило одно: на стеке всегда лежит значение фиксированного размера (<code>size_of::&lt;T&gt;()</code>).
+    Всё, что растёт или чей размер неизвестен при компиляции, — в куче, а на стеке остаётся указатель на неё.
+    Вложенные контейнеры дают <b>цепочки</b> аллокаций.</p>
+
+  <div class="compact-grid">
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">Box&lt;u64&gt;</span><span class="type-size-badge">8 B</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ heap: 42</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">Box&lt;[i32]&gt;</span><span class="type-size-badge">16 B</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">16 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ heap</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>3</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+      <p class="card-note">Владеющий fat ptr, без cap — расти не может. Аналогично <code>Box&lt;str&gt;</code>.</p>
+    </div>
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">Rc&lt;str&gt;</span><span class="type-size-badge">16 B</span></div>
+      <div class="mem-layout">
+        <div class="mem-box stack" style="width:100%">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">16 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ RcBox</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>6</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+      <p class="card-note">Байты строки лежат прямо в RcBox — одна аллокация вместо двух у <code>Rc&lt;String&gt;</code>.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Box&lt;[i32; 3]&gt; vs Box&lt;[i32]&gt; — где хранится длина?</span>
+      <span class="type-size-badge">8 B vs 16 B</span>
+    </div>
+<pre class="code"><span class="k">let</span> a: Box&lt;[i32; <span class="t">3</span>]&gt; = Box::new([<span class="t">1</span>, <span class="t">2</span>, <span class="t">3</span>]);  <span class="c">// длина 3 — часть ТИПА</span>
+<span class="k">let</span> s: Box&lt;[i32]&gt;    = a;                       <span class="c">// unsize-коэрсия: 3 переезжает из типа в указатель</span>
+<span class="k">let</span> v: Box&lt;[i32]&gt;    = vec![<span class="t">1</span>, <span class="t">2</span>, <span class="t">3</span>].into_boxed_slice(); <span class="c">// длина известна только в runtime</span></pre>
+    <div class="chain">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · Box&lt;[i32; 3]&gt;</span><span class="mem-box-total">8 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap</span><span class="mem-box-total">12 B</span></div>
+        <div class="reg wide"><div class="reg-content"><span>1 | 2 | 3</span></div></div>
+      </div>
+    </div>
+    <div class="chain" style="padding-top:0">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · Box&lt;[i32]&gt;</span><span class="mem-box-total">16 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>3</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap</span><span class="mem-box-total">12 B</span></div>
+        <div class="reg wide"><div class="reg-content"><span>1 | 2 | 3</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">Куча в обоих случаях <b>одинаковая</b>: только 12 байт элементов, без заголовка с длиной.
+      Разница только в том, откуда компилятор узнаёт длину. Если <code>T: Sized</code>, размер записан в типе
+      и <code>Box</code> — тонкий указатель на 8 B. Если <code>T: ?Sized</code> (<code>[T]</code>, <code>str</code>, <code>dyn Trait</code>),
+      метаданные приходится хранить рядом с адресом, и получается fat pointer на 16 B.</p>
+  </div>
+
+  <div class="table-wrap" style="margin-bottom:14px">
+    <table>
+      <thead><tr><th>Type</th><th>T: Sized?</th><th>size</th><th>Метаданные рядом с ptr</th></tr></thead>
+      <tbody>
+        <tr><td class="td-type">Box&lt;u64&gt;</td><td class="td-cat">да</td><td class="td-stack">8 B</td><td class="td-cat">—</td></tr>
+        <tr><td class="td-type">Box&lt;Point&gt;</td><td class="td-cat">да</td><td class="td-stack">8 B</td><td class="td-cat">— (вся структура в куче)</td></tr>
+        <tr><td class="td-type">Box&lt;[i32; 3]&gt;</td><td class="td-cat">да</td><td class="td-stack">8 B</td><td class="td-cat">— (длина в типе)</td></tr>
+        <tr><td class="td-type">Box&lt;[i32]&gt;</td><td class="td-cat">нет</td><td class="td-stack">16 B</td><td class="td-cat">len: usize</td></tr>
+        <tr><td class="td-type">Box&lt;str&gt;</td><td class="td-cat">нет</td><td class="td-stack">16 B</td><td class="td-cat">len: usize (в байтах)</td></tr>
+        <tr><td class="td-type">Box&lt;dyn Shape&gt;</td><td class="td-cat">нет</td><td class="td-stack">16 B</td><td class="td-cat">vtable: &amp;'static VTable</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout heap"><b>Niche optimization.</b> Ссылки и <code>Box</code> никогда не бывают null, <code>bool</code> — только 0/1,
+    <code>String.cap</code> ≤ isize::MAX. Компилятор использует эти «запрещённые» значения для хранения тега enum-а,
+    поэтому <code>Option</code> часто ничего не стоит.</div>
+
+  <div class="table-wrap" style="margin-bottom:14px">
+    <table>
+      <thead><tr><th>Type</th><th>size</th><th>Почему</th></tr></thead>
+      <tbody>
+        <tr><td class="td-type">Option&lt;Box&lt;u64&gt;&gt;</td><td class="td-stack">8 B</td><td class="td-cat">None = null pointer</td></tr>
+        <tr><td class="td-type">Option&lt;&amp;u8&gt;</td><td class="td-stack">8 B</td><td class="td-cat">None = null pointer</td></tr>
+        <tr><td class="td-type">Option&lt;String&gt;</td><td class="td-stack">24 B</td><td class="td-cat">ниша в cap</td></tr>
+        <tr><td class="td-type">Option&lt;bool&gt;</td><td class="td-stack">1 B</td><td class="td-cat">None = 2</td></tr>
+        <tr><td class="td-type">Option&lt;u64&gt;</td><td class="td-stack">16 B</td><td class="td-cat">ниши нет → tag 8 B (с выравниванием)</td></tr>
+        <tr><td class="td-type">enum Message { Quit, Move{x,y}, Write(String) }</td><td class="td-stack">24 B</td><td class="td-cat">max(вариант) = String; тег — в нише cap</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Vec&lt;String&gt;</span>
+      <span class="type-size-badge">24 B stack → 48 B buffer → 2 strings</span>
+    </div>
+<pre class="code"><span class="k">let</span> words = vec![String::from(<span class="s">"alpha"</span>), String::from(<span class="s">"beta"</span>)];</pre>
+    <div class="chain">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · words</span><span class="mem-box-total">24 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>2</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">cap</div><div class="reg-content"><span>2</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap · buffer</span><span class="mem-box-total">48 B</span></div>
+        <div class="reg"><div class="reg-name">[0]</div><div class="reg-content"><span>ptr · 5 · 5</span><span class="reg-bytes">24 B</span></div></div>
+        <div class="reg"><div class="reg-name">[1]</div><div class="reg-content"><span>ptr · 4 · 4</span><span class="reg-bytes">24 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="stack-col">
+        <div class="mem-box heap"><div class="mem-box-header"><span>Heap</span><span class="mem-box-total">5 B</span></div>
+          <div class="reg wide"><div class="reg-content"><span>a · l · p · h · a</span></div></div></div>
+        <div class="mem-box heap"><div class="mem-box-header"><span>Heap</span><span class="mem-box-total">4 B</span></div>
+          <div class="reg wide"><div class="reg-content"><span>b · e · t · a</span></div></div></div>
+      </div>
+    </div>
+    <p class="card-note">3 аллокации. Заголовки String-ов (ptr/len/cap) лежат уже <b>в куче</b>, внутри буфера Vec.
+      Тот же принцип у <code>Vec&lt;Vec&lt;i32&gt;&gt;</code>: внешний буфер из 24-байтных заголовков, каждый ведёт в свой буфер.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Vec&lt;Vec&lt;i32&gt;&gt; vs [[i32; 3]; 2]</span>
+      <span class="type-size-badge">jagged vs flat</span>
+    </div>
+    <div class="chain">
+      <div>
+        <div class="label">vec![vec![1, 2], vec![3, 4, 5]]</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">
+          <div class="mem-box stack">
+            <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">24 B</span></div>
+            <div class="reg"><div class="reg-name">ptr·len·cap</div><div class="reg-content"><span>→</span><span class="reg-bytes">24 B</span></div></div>
+          </div>
+          <div class="mem-box heap">
+            <div class="mem-box-header"><span>Heap</span><span class="mem-box-total">48 B</span></div>
+            <div class="reg"><div class="reg-name">[0]</div><div class="reg-content"><span>ptr·2·2 →</span><span class="reg-bytes">24 B</span></div></div>
+            <div class="reg"><div class="reg-name">[1]</div><div class="reg-content"><span>ptr·3·3 →</span><span class="reg-bytes">24 B</span></div></div>
+          </div>
+          <div class="stack-col">
+            <div class="mem-box heap"><div class="reg wide"><div class="reg-content"><span>1 | 2</span></div></div></div>
+            <div class="mem-box heap"><div class="reg wide"><div class="reg-content"><span>3 | 4 | 5</span></div></div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="label">[[1, 2, 3], [4, 5, 6]]</div>
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">24 B</span></div>
+          <div class="cells">
+            <div class="cell">1<small>+0</small></div><div class="cell">2<small>+4</small></div><div class="cell">3<small>+8</small></div>
+            <div class="cell hl">4<small>+12</small></div><div class="cell hl">5<small>+16</small></div><div class="cell hl">6<small>+20</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="card-note">Vec&lt;Vec&gt;: 3 аллокации, строки разной длины, разбросаны по куче (плохо для кэша).
+      Массив массивов: 0 аллокаций, один непрерывный блок, <code>m[1][0]</code> = база + 12.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Rc&lt;String&gt; × 2 клона</span>
+      <span class="type-size-badge">8 B each + RcBox 40 B + buffer</span>
+    </div>
+<pre class="code"><span class="k">let</span> rc1 = Rc::new(String::from(<span class="s">"shared"</span>));
+<span class="k">let</span> rc2 = Rc::clone(&amp;rc1);   <span class="c">// не копирует строку: strong += 1</span></pre>
+    <div class="chain">
+      <div class="stack-col">
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>Stack · rc1</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ RcBox</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>Stack · rc2</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ RcBox</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+      <div class="arrow-connector"><span>══►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap · RcBox&lt;String&gt;</span><span class="mem-box-total">40 B</span></div>
+        <div class="reg"><div class="reg-name">strong</div><div class="reg-content"><span>2</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">weak</div><div class="reg-content"><span>1 (неявный)</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">value</div><div class="reg-content"><span>ptr · 6 · 6</span><span class="reg-bytes">24 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap</span><span class="mem-box-total">6 B</span></div>
+        <div class="reg wide"><div class="reg-content"><span>s · h · a · r · e · d</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">Счётчики живут в куче рядом со значением, а не в самом <code>Rc</code>. <code>Arc&lt;T&gt;</code> — та же схема с атомарными счётчиками.
+      Строка освобождается, когда <code>strong</code> падает до 0.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Rc&lt;RefCell&lt;Vec&lt;i32&gt;&gt;&gt;</span>
+      <span class="type-size-badge">8 B + RcBox 48 B + buffer</span>
+    </div>
+    <div class="chain">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">8 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap · RcBox</span><span class="mem-box-total">48 B</span></div>
+        <div class="reg"><div class="reg-name">strong</div><div class="reg-content"><span>1</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">weak</div><div class="reg-content"><span>1</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">borrow</div><div class="reg-content"><span>RefCell flag (isize)</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">vec</div><div class="reg-content"><span>ptr · 4 · cap</span><span class="reg-bytes">24 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap</span></div>
+        <div class="reg wide"><div class="reg-content"><span>1 | 2 | 3 | 4 | (unused…)</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">borrow flag: 0 — свободно, &gt;0 — число активных <code>borrow()</code>, −1 — активный <code>borrow_mut()</code>.
+      <code>size_of::&lt;RefCell&lt;Vec&lt;i32&gt;&gt;&gt;()</code> = 32.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Linked list: Node { val, next: Option&lt;Box&lt;Node&gt;&gt; }</span>
+      <span class="type-size-badge">16 B per node</span>
+    </div>
+    <div class="chain">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · node 1</span><span class="mem-box-total">16 B</span></div>
+        <div class="reg"><div class="reg-name">next</div><div class="reg-content"><span>Some(ptr) →</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">val</div><div class="reg-content"><span>1</span><span class="reg-bytes">4 B</span></div></div>
+        <div class="reg padding"><div class="reg-name">pad</div><div class="reg-content"><span></span><span class="reg-bytes">4 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap · node 2</span><span class="mem-box-total">16 B</span></div>
+        <div class="reg"><div class="reg-name">next</div><div class="reg-content"><span>Some(ptr) →</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">val</div><div class="reg-content"><span>2</span><span class="reg-bytes">4 B</span></div></div>
+        <div class="reg padding"><div class="reg-name">pad</div><div class="reg-content"><span></span><span class="reg-bytes">4 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap · node 3</span><span class="mem-box-total">16 B</span></div>
+        <div class="reg"><div class="reg-name">next</div><div class="reg-content"><span>None = 0x0</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">val</div><div class="reg-content"><span>3</span><span class="reg-bytes">4 B</span></div></div>
+        <div class="reg padding"><div class="reg-name">pad</div><div class="reg-content"><span></span><span class="reg-bytes">4 B</span></div></div>
+      </div>
+    </div>
+    <p class="card-note">Без <code>Box</code> тип <code>Node</code> был бы бесконечного размера — Box разрывает рекурсию до 8 B.
+      Option&lt;Box&gt; тоже 8 B благодаря нише (None = null).</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">HashMap&lt;String, Vec&lt;i32&gt;&gt;</span>
+      <span class="type-size-badge">48 B stack + table</span>
+    </div>
+    <div class="chain">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack</span><span class="mem-box-total">48 B</span></div>
+        <div class="reg"><div class="reg-name">table</div><div class="reg-content"><span>ctrl·mask·items·growth</span><span class="reg-bytes">32 B</span></div></div>
+        <div class="reg"><div class="reg-name">hasher</div><div class="reg-content"><span>RandomState</span><span class="reg-bytes">16 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap · одна аллокация</span></div>
+        <div class="reg"><div class="reg-name">buckets</div><div class="reg-content"><span>(String, Vec) × N</span><span class="reg-bytes">48 B each</span></div></div>
+        <div class="reg"><div class="reg-name">ctrl</div><div class="reg-content"><span>1 B / bucket</span><span class="reg-bytes">N + 16 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="stack-col">
+        <div class="mem-box heap" style="min-width:80px"><div class="reg wide"><div class="reg-content"><span>"k"</span></div></div></div>
+        <div class="mem-box heap" style="min-width:80px"><div class="reg wide"><div class="reg-content"><span>[1]</span></div></div></div>
+      </div>
+    </div>
+    <p class="card-note">Каждый ключ String и значение Vec — ещё по своей аллокации. Внутреннее устройство (hashbrown / SwissTable) — деталь реализации std.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       REFS TO STRUCTS & ARRAYS  (src/layouts.rs → struct_and_array_refs())
+       ══════════════════════════════════════════════════ -->
+  <div class="section-head"><h2>Ссылки на структуры</h2></div>
+  <p class="intro"><code>&amp;T</code> на любую <code>Sized</code>-структуру — просто адрес её первого байта (8 B).
+    Ссылка ничего не знает о полях: смещения полей известны компилятору статически и «вшиваются» в инструкции.
+    Ссылка на поле <code>&amp;p.id</code> — тот же адрес + смещение.</p>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">Player — порядок полей в памяти</span>
+      <span class="type-size-badge">40 bytes, align 8</span>
+    </div>
+<pre class="code"><span class="k">struct</span> <span class="t">Player</span> {        <span class="c">// в исходнике:</span>
+    id: u32,          <span class="c">// 4</span>
+    alive: bool,      <span class="c">// 1</span>
+    name: String,     <span class="c">// 24</span>
+    pos: [f32; <span class="t">2</span>],    <span class="c">// 8</span>
+}                     <span class="c">// наивно: 4+1+(3 pad)+24+8 = 40, но порядок другой ↓</span></pre>
+    <div class="mem-box stack" style="margin:0 16px 14px">
+      <div class="mem-box-header"><span>Stack · p (реальный layout, offsets из программы)</span><span class="mem-box-total">40 B</span></div>
+      <div class="cells">
+        <div class="cell hl" style="min-width:180px">name: String<small>+0 … +23</small></div>
+        <div class="cell" style="min-width:90px">pos<small>+24 … +31</small></div>
+        <div class="cell" style="min-width:60px">id<small>+32</small></div>
+        <div class="cell" style="min-width:40px">alive<small>+36</small></div>
+        <div class="cell pad" style="min-width:40px">pad<small>+37..39</small></div>
+      </div>
+      <div class="ptr-list">
+        <div><b>&amp;p</b>, <b>&amp;p.name</b> → +0 &nbsp;(один и тот же адрес, но разные типы!)</div>
+        <div><b>&amp;p.id</b> → +32 &nbsp;(interior reference, 8 B)</div>
+      </div>
+    </div>
+    <p class="card-note">Rust (repr(Rust)) переставляет поля по убыванию выравнивания, чтобы минимизировать padding.
+      Если нужен порядок как в исходнике (FFI, C) — <code>#[repr(C)]</code>.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">&amp;Player · &amp;p.id · &amp;str из p.name</span>
+      <span class="type-size-badge">8 / 8 / 16 bytes</span>
+    </div>
+    <div class="chain">
+      <div class="stack-col">
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>rp: &amp;Player</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ p + 0</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>&amp;p.id: &amp;u32</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ p + 32</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>s: &amp;str</span><span class="mem-box-total">16 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ heap bytes</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>3</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · p: Player</span><span class="mem-box-total">40 B</span></div>
+        <div class="reg"><div class="reg-name">name</div><div class="reg-content"><span>ptr · 3 · 3</span><span class="reg-bytes">+0</span></div></div>
+        <div class="reg"><div class="reg-name">pos</div><div class="reg-content"><span>[1.0, 2.0]</span><span class="reg-bytes">+24</span></div></div>
+        <div class="reg"><div class="reg-name">id</div><div class="reg-content"><span>7</span><span class="reg-bytes">+32</span></div></div>
+        <div class="reg"><div class="reg-name">alive</div><div class="reg-content"><span>true</span><span class="reg-bytes">+36</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap</span><span class="mem-box-total">3 B</span></div>
+        <div class="reg wide"><div class="reg-content"><span>N · e · o</span></div></div>
+      </div>
+    </div>
+    <p class="card-note"><code>&amp;String</code> (8 B) указывает на заголовок <b>на стеке</b> — двойной прыжок до байтов.
+      <code>&amp;str</code> (16 B) указывает <b>прямо в кучу</b> — один прыжок. Поэтому в параметрах предпочитают <code>&amp;str</code>.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">&amp;&amp;Player и &amp;Box&lt;Player&gt;</span>
+      <span class="type-size-badge">8 bytes each</span>
+    </div>
+    <div class="chain">
+      <div>
+        <div class="label">let rrp = &amp;rp;  // &amp;&amp;Player</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div class="mem-box stack"><div class="mem-box-header"><span>rrp</span><span class="mem-box-total">8 B</span></div>
+            <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ rp</span></div></div></div>
+          <span style="color:var(--stack-glow)">──►</span>
+          <div class="mem-box stack"><div class="mem-box-header"><span>rp</span><span class="mem-box-total">8 B</span></div>
+            <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ p</span></div></div></div>
+          <span style="color:var(--stack-glow)">──►</span>
+          <div class="mem-box stack"><div class="mem-box-header"><span>p</span><span class="mem-box-total">40 B</span></div>
+            <div class="reg wide"><div class="reg-content"><span>Player</span></div></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="label">let bp = Box::new(Player{..});  &amp;bp: &amp;Box&lt;Player&gt;</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <div class="mem-box stack"><div class="mem-box-header"><span>&amp;bp</span><span class="mem-box-total">8 B</span></div>
+            <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ bp</span></div></div></div>
+          <span style="color:var(--stack-glow)">──►</span>
+          <div class="mem-box stack"><div class="mem-box-header"><span>bp: Box</span><span class="mem-box-total">8 B</span></div>
+            <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ heap</span></div></div></div>
+          <span style="color:var(--stack-glow)">──►</span>
+          <div class="mem-box heap"><div class="mem-box-header"><span>Heap</span><span class="mem-box-total">40 B</span></div>
+            <div class="reg wide"><div class="reg-content"><span>Player</span></div></div></div>
+        </div>
+      </div>
+    </div>
+    <p class="card-note">Авто-разыменование (<code>rrp.id</code>, <code>bp.id</code>) прячет цепочку, но в машинном коде это несколько загрузок подряд.
+      <code>&amp;*bp</code> даёт <code>&amp;Player</code>, указывающий сразу в кучу.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">View&lt;'a&gt; — структура из ссылок</span>
+      <span class="type-size-badge">32 bytes</span>
+    </div>
+<pre class="code"><span class="k">struct</span> <span class="t">View</span>&lt;'a&gt; {
+    player: &amp;'a Player,    <span class="c">// 8  thin</span>
+    tags: &amp;'a [&amp;'a str],   <span class="c">// 16 fat (ptr + len)</span>
+    row: &amp;'a [i32; <span class="t">4</span>],     <span class="c">// 8  thin (длина в типе)</span>
+}</pre>
+    <div class="chain">
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · view</span><span class="mem-box-total">32 B</span></div>
+        <div class="reg"><div class="reg-name">player</div><div class="reg-content"><span>→ p</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">tags</div><div class="reg-content"><span>ptr · len=2</span><span class="reg-bytes">16 B</span></div></div>
+        <div class="reg"><div class="reg-name">row</div><div class="reg-content"><span>→ row</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="stack-col">
+        <div class="mem-box stack"><div class="mem-box-header"><span>p: Player</span><span class="mem-box-total">40 B</span></div></div>
+        <div class="mem-box stack"><div class="mem-box-header"><span>tags: [&amp;str; 2]</span><span class="mem-box-total">32 B</span></div>
+          <div class="reg wide"><div class="reg-content"><span>(ptr,4) | (ptr,5) → .rodata</span></div></div></div>
+        <div class="mem-box stack"><div class="mem-box-header"><span>row: [i32; 4]</span><span class="mem-box-total">16 B</span></div>
+          <div class="reg wide"><div class="reg-content"><span>1 | 2 | 3 | 4</span></div></div></div>
+      </div>
+    </div>
+    <p class="card-note">Структура с ссылками ничем не владеет — lifetime <code>'a</code> гарантирует, что <code>view</code> не переживёт данные.</p>
+  </div>
+
+  <div class="section-head"><h2>Ссылки на массивы и слайсы</h2></div>
+  <p class="intro">Массив <code>[T; N]</code> — значение, N элементов подряд, длина — часть <b>типа</b>.
+    Поэтому <code>&amp;[T; N]</code> — thin (8 B). Слайс <code>[T]</code> — unsized, длина известна только в runtime,
+    поэтому <code>&amp;[T]</code> — fat (ptr + len, 16 B). Все ссылки ниже указывают в один и тот же массив.</p>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">let arr: [i32; 6] = [10, 20, 30, 40, 50, 60];</span>
+      <span class="type-size-badge">24 B array</span>
+    </div>
+    <div class="mem-box stack" style="margin:16px 16px 10px">
+      <div class="mem-box-header"><span>Stack · arr</span><span class="mem-box-total">24 B</span></div>
+      <div class="cells">
+        <div class="cell">10<small>+0</small></div>
+        <div class="cell">20<small>+4</small></div>
+        <div class="cell hl">30<small>+8</small></div>
+        <div class="cell hl">40<small>+12</small></div>
+        <div class="cell hl">50<small>+16</small></div>
+        <div class="cell">60<small>+20</small></div>
+      </div>
+    </div>
+    <div class="table-wrap" style="margin:0 16px 14px">
+      <table>
+        <thead><tr><th>Ссылка</th><th>Type</th><th>size</th><th>ptr</th><th>len</th></tr></thead>
+        <tbody>
+          <tr><td class="td-type">&amp;arr</td><td>&amp;[i32; 6]</td><td class="td-stack">8 B</td><td>arr + 0</td><td class="td-cat">в типе (6)</td></tr>
+          <tr><td class="td-type">&amp;arr as &amp;[i32]</td><td>&amp;[i32]</td><td class="td-stack">16 B</td><td>arr + 0</td><td class="td-yes-len">6</td></tr>
+          <tr><td class="td-type">&amp;arr[2..5]</td><td>&amp;[i32]</td><td class="td-stack">16 B</td><td>arr + 8</td><td class="td-yes-len">3</td></tr>
+          <tr><td class="td-type">&amp;arr[3]</td><td>&amp;i32</td><td class="td-stack">8 B</td><td>arr + 12</td><td class="td-cat">—</td></tr>
+          <tr><td class="td-type">arr[..3].try_into()</td><td>&amp;[i32; 3]</td><td class="td-stack">8 B</td><td>arr + 0</td><td class="td-cat">проверка в runtime</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="card-note">Под-слайс <code>&amp;arr[2..5]</code> не копирует данные — это новый fat pointer с другим ptr и len.
+      <code>&amp;[i32; 6] → &amp;[i32]</code> — бесплатная unsize coercion: компилятор просто дописывает len = 6.</p>
+  </div>
+
+  <div class="compact-grid">
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">&amp;[[i32; 3]; 2]</span><span class="type-size-badge">8 B</span></div>
+      <p class="card-note" style="padding-top:10px">Thin. Обе размерности в типе. <code>m[i][j]</code> = база + (i·3 + j)·4.</p>
+    </div>
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">&amp;[[i32; 3]]</span><span class="type-size-badge">16 B</span></div>
+      <p class="card-note" style="padding-top:10px">Fat, <code>len = 2</code> — число <b>строк</b>. Ширина строки (3) по-прежнему в типе.</p>
+    </div>
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">[&amp;str; 3]</span><span class="type-size-badge">48 B</span></div>
+      <p class="card-note" style="padding-top:10px">Массив fat-указателей: 3 × (ptr+len) на стеке, байты "a", "bb", "ccc" — в .rodata.</p>
+    </div>
+    <div class="compact-card">
+      <div class="card-header"><span class="type-name">[Player; 2]</span><span class="type-size-badge">80 B</span></div>
+      <p class="card-note" style="padding-top:10px"><code>&amp;team[1] − &amp;team[0]</code> = 40 = <code>size_of::&lt;Player&gt;()</code>. Шаг = размер элемента.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="type-name">&amp;Vec&lt;i32&gt; vs &amp;[i32]</span>
+      <span class="type-size-badge">8 B (2 hops) vs 16 B (1 hop)</span>
+    </div>
+    <div class="chain">
+      <div class="stack-col">
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>rv: &amp;Vec&lt;i32&gt;</span><span class="mem-box-total">8 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ v (стек)</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+        <div class="mem-box stack">
+          <div class="mem-box-header"><span>rs: &amp;[i32]</span><span class="mem-box-total">16 B</span></div>
+          <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→ буфер (куча)</span><span class="reg-bytes">8 B</span></div></div>
+          <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>3</span><span class="reg-bytes">8 B</span></div></div>
+        </div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box stack">
+        <div class="mem-box-header"><span>Stack · v</span><span class="mem-box-total">24 B</span></div>
+        <div class="reg"><div class="reg-name">ptr</div><div class="reg-content"><span>→</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">len</div><div class="reg-content"><span>3</span><span class="reg-bytes">8 B</span></div></div>
+        <div class="reg"><div class="reg-name">cap</div><div class="reg-content"><span>3</span><span class="reg-bytes">8 B</span></div></div>
+      </div>
+      <div class="arrow-connector"><span>──►</span></div>
+      <div class="mem-box heap">
+        <div class="mem-box-header"><span>Heap</span><span class="mem-box-total">12 B</span></div>
+        <div class="reg wide"><div class="reg-content"><span>1 | 2 | 3</span></div></div>
+      </div>
+    </div>
+    <p class="card-note"><code>rs</code> указывает в кучу напрямую, минуя заголовок Vec. Функция <code>fn f(x: &amp;[i32])</code>
+      принимает и <code>&amp;Vec</code>, и <code>&amp;[i32; N]</code>, и под-слайсы — поэтому она предпочтительнее <code>fn f(x: &amp;Vec&lt;i32&gt;)</code>.</p>
+  </div>
+
   <!-- ── SUMMARY TABLE ──────────────────────────────── -->
   <div class="section-head"><h2>Summary</h2></div>
 
@@ -1222,14 +2075,37 @@ const rows = [
   ['&dyn Shape',   'Trait object',  '16 B',  false, true,  false, false],
   ['Struct1',      'Struct',        '64 B',  true,  false, false, false],
   ['Struct2',      'Struct',        '920 B', true,  false, false, false],
+  ['|x| x * 2',              'Closure (ZST)',   '0 B',   false, false, false, false],
+  ['fn(i32) -> i32',         'Fn pointer',      '8 B',   false, true,  false, false],
+  ['|| a + b  (by ref)',     'Closure',         '16 B',  false, true,  false, false],
+  ['move || name + nums',    'Closure',         '48 B',  true,  false, false, false],
+  ['Box<dyn Fn>',            'Trait object',    '16 B',  true,  true,  false, false],
+  ['&dyn Fn',                'Trait object',    '16 B',  false, true,  false, false],
+  ['Box<u64>',               'Owned ptr',       '8 B',   true,  true,  false, false],
+  ['Box<[i32; 3]>',          'Owned ptr',       '8 B',   true,  true,  false, false],
+  ['Box<[i32]> / Box<str>',  'Owned fat ptr',   '16 B',  true,  true,  true,  false],
+  ['Rc<String> / Arc<T>',    'Shared ptr',      '8 B',   true,  true,  false, false],
+  ['Rc<str>',                'Shared fat ptr',  '16 B',  true,  true,  true,  false],
+  ['Option<Box<T>>',         'Niche',           '8 B',   true,  true,  false, false],
+  ['Option<u64>',            'Enum + tag',      '16 B',  false, false, false, false],
+  ['enum Message',           'Enum (niche)',    '24 B',  true,  false, false, false],
+  ['Vec<String>',            'Nested buffer',   '24 B',  true,  true,  true,  true ],
+  ['HashMap<String, Vec>',   'Hash table',      '48 B',  true,  true,  false, false],
+  ['Player',                 'Struct',          '40 B',  true,  false, false, false],
+  ['&[i32; 6]',              'Thin array ref',  '8 B',   false, true,  false, false],
+  ['&arr[2..5]',             'Fat ptr',         '16 B',  false, true,  true,  false],
+  ['&[[i32; 3]]',            'Fat ptr',         '16 B',  false, true,  true,  false],
+  ['[&str; 3]',              'Array',           '48 B',  false, false, false, false],
+  ['View<\'a>',              'Struct of refs',  '32 B',  false, false, false, false],
 ];
 
 const yes = (cls) => `<span class="${cls}">yes</span>`;
 const no  = () => `<span class="td-no">—</span>`;
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const tb  = document.getElementById('summary-table');
 tb.innerHTML = rows.map(([type, cat, stack, heap, ptr, len, cap]) => `
   <tr>
-    <td class="td-type">${type}</td>
+    <td class="td-type">${esc(type)}</td>
     <td class="td-cat">${cat}</td>
     <td class="td-stack">${stack}</td>
     <td>${heap ? yes('td-yes-heap') : no()}</td>
