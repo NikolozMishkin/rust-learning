@@ -1,0 +1,42 @@
+// trait Some_Trait: ?Sized {} // gives error
+// trait Some_Trait {}
+
+// trait Trait where Self: ?Sized {}
+
+//trait Some_Trait: Sized {
+trait Some_Trait {
+    // change to //trait Some_Trait: Sized {   // and then to //trait Trait {
+
+    fn method(self)
+    // change to // fn method(self) where Self:Sized   //  fn method(self) -> Sized
+    where
+        Self: Sized,
+    {
+        println!("I can only be called by sized types");
+        //self // add later on
+    }
+
+    fn method_2(&self) {
+        // change to     fn method_2(&self) -> Self {
+        println!("I am optionally Sized, both sized and  unsized types can call me");
+    }
+}
+
+impl Some_Trait for i32 {}
+impl Some_Trait for [u8] {}
+
+//impl Some_Trait for dyn Some_Trait {}
+
+fn main() {
+    let x = 5;
+    let y: &[u8] = &[4, 5, 6];
+    x.method();
+    // y.method();
+
+    x.method_2();
+    y.method_2();
+
+    let x: &dyn Some_Trait = &x;
+    // x.method(); // gives error
+    x.method_2();
+}

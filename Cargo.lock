@@ -2064,6 +2064,10 @@ name = "single_linked_list_part_2"
 version = "0.1.0"
 
 [[package]]
+name = "size_and_trait_objects"
+version = "0.1.0"
+
+[[package]]
 name = "sized_and_optionaly_sized_traits"
 version = "0.1.0"
 dependencies = [
@@ -2349,6 +2353,10 @@ version = "0.1.0"
 
 [[package]]
 name = "trait_objects_limitations_associated_types"
+version = "0.1.0"
+
+[[package]]
+name = "trait_objects_limitations_function_with_no_self_parameter"
 version = "0.1.0"
 
 [[package]]
