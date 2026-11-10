@@ -1287,6 +1287,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "partial_object_safety"
+version = "0.1.0"
+
+[[package]]
 name = "pattern_matching_contexts_prerequisite_for_destructured_struct_parameters"
 version = "0.1.0"
 
