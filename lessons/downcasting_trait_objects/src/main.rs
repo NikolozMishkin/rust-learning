@@ -1,0 +1,104 @@
+// &dyn trait or &mut dyn trait -> concrete type
+use std::{any::Any, thread::sleep, time::Duration};
+
+trait Animal {
+    fn make_sound(&self);
+    // fn as_any(&self) -> &dyn Any;
+    // fn as_mut_any(&mut self) -> &mut dyn Any;
+}
+
+struct Dog {
+    name: &'static str,
+}
+struct Cat {
+    name: String,
+}
+
+impl Animal for Dog {
+    fn make_sound(&self) {
+        println!("Woof!");
+    }
+
+    // fn as_any(&self) -> &dyn Any {
+    //     self
+    // }
+
+    // fn as_mut_any(&mut self) -> &mut dyn Any {
+    //     self
+    // }
+}
+
+impl Animal for Cat {
+    fn make_sound(&self) {
+        println!("Meow!");
+    }
+
+    // fn as_any(&self) -> &dyn Any {
+    //     self
+    // }
+
+    // fn as_mut_any(&mut self) -> &mut dyn Any {
+    //     self
+    // }
+}
+
+fn identity_and_make_sound(animal: &mut dyn Any) {
+    if let Some(dog) = animal.downcast_mut::<Dog>() {
+        println!("It's a Dog");
+        dog.make_sound();
+    } else if let Some(cat) = animal.downcast_ref::<Cat>() {
+        println!("It's a Cat");
+        cat.make_sound();
+    } else {
+        println!("Unknown animal");
+    }
+}
+
+fn my_fn() {
+    let mut dog = Dog { name: "marck" };
+    let mut cat = Cat {
+        name: "jonny".to_string(),
+    };
+    let dog = &mut dog as &mut dyn Any;
+    let cat = &mut cat as &mut dyn Any;
+    let animals: Vec<&mut dyn Any> = vec![dog, cat];
+
+    for animal in animals {
+        identity_and_make_sound(animal);
+    }
+}
+
+fn main() {
+    // let mut dog = Dog;
+    // let mut cat = Cat;
+    // let dog = &mut dog as &mut dyn Any;
+    // let cat = &mut cat as &mut dyn Any;
+    // let animals: Vec<&mut dyn Any> = vec![dog, cat];
+
+    // for animal in animals {
+    //     identity_and_make_sound(animal);
+    // }
+
+    my_fn();
+    sleep(Duration::from_secs(1));
+}
+
+/*
+-------------------------------------------------------------------------------------------------------------
+Concept / Topic            | Explanation
+---------------------------|-----------------------------------------------------------------------------------
+Downcasting                | Downcasting recovers a concrete type from a trait object.
+                           | It is enabled through Any trait which is implemented for almost all types.
+
+Making Traits Downcastable | A trait have Any as a supertrait which allows trait objects converion to dyn Any.
+                           | The supertrait requirement is usually implicit.
+
+downcast_ref               | This  attempts to recover an immutable reference to a concrete type.
+
+downcast_mut               | This recovers a mutable reference to the concrete type.
+                           | It enables mutation of the recovered concrete value.
+
+Direct dyn Any Usage       | Values can be stored directly as dyn Any trait objects.
+                           | Functions can downcast directly from dyn Any.
+--------------------------------------------------------------------------------------------------------------
+*/

@@ -242,6 +242,10 @@ name = "chaining_error_types"
 version = "0.1.0"
 
 [[package]]
+name = "checking_types_without_downcasting"
+version = "0.1.0"
+
+[[package]]
 name = "choosing_associated_vs_generic_type"
 version = "0.1.0"
 
@@ -381,6 +385,10 @@ version = "0.1.0"
 
 [[package]]
 name = "control_flow"
+version = "0.1.0"
+
+[[package]]
+name = "conversion_between_trait_objects"
 version = "0.1.0"
 
 [[package]]
@@ -566,6 +574,14 @@ dependencies = [
 
 [[package]]
 name = "doubly_linked_list_part_1"
+version = "0.1.0"
+
+[[package]]
+name = "downcasting_example"
+version = "0.1.0"
+
+[[package]]
+name = "downcasting_trait_objects"
 version = "0.1.0"
 
 [[package]]
@@ -1216,6 +1232,10 @@ version = "0.0.0"
 dependencies = [
  "rand",
 ]
+
+[[package]]
+name = "operator_overloading"
+version = "0.1.0"
 
 [[package]]
 name = "operators"
@@ -1966,6 +1986,10 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "sealed_trait"
+version = "0.1.0"
 
 [[package]]
 name = "semver"

@@ -1,0 +1,97 @@
+/*  ---- Arithmetic Operators ----
+Operator	Trait	Function Signature
++	        Add	    fn add(self, rhs: Rhs) -> Output
+-	        Sub	    fn sub(self, rhs: Rhs) -> Output
+*	        Mul	    fn mul(self, rhs: Rhs) -> Output
+/	        Div	    fn div(self, rhs: Rhs) -> Output
+%	        Rem	    fn rem(self, rhs: Rhs) -> Output
+*/
+
+/* ---- Bitwise Operators ----
+Operator	Trait	Function Signature
+&	        BitAnd	fn bitand(self, rhs: Rhs) -> Output
+^	        BitXor	fn bitxor(self, rhs: Rhs) -> Output
+<<	        Shl	fn shl(self, rhs: Rhs) -> Output
+>>	        Shr	fn shr(self, rhs: Rhs) -> Output
+*/
+
+/* --- Comparison Operators ----
+Operator	Trait	    Function Signature
+==	        PartialEq	fn eq(&self, other: &Rhs) -> bool
+!=	        PartialEq	fn ne(&self, other: &Rhs) -> bool
+<	        PartialOrd	fn lt(&self, other: &Rhs) -> bool
+<=	        PartialOrd	fn le(&self, other: &Rhs) -> bool
+>	        PartialOrd	fn gt(&self, other: &Rhs) -> bool
+>=	        PartialOrd	fn ge(&self, other: &Rhs) -> bool
+*/
+
+/* --- Assignment Operators ---
+Operator	Trait	        Function Signature
++=	        AddAssign	    fn add_assign(&mut self, rhs: Rhs)
+-=	        SubAssign	    fn sub_assign(&mut self, rhs: Rhs)
+*=	        MulAssign	    fn mul_assign(&mut self, rhs: Rhs)
+/=	        DivAssign	    fn div_assign(&mut self, rhs: Rhs)
+%=	        RemAssign	    fn rem_assign(&mut self, rhs: Rhs)
+&=	        BitAndAssign	fn bitand_assign(&mut self, rhs: Rhs)
+^=	        BitXorAssign	fn bitxor_assign(&mut self, rhs: Rhs)
+<<=	        ShlAssign   	fn shl_assign(&mut self, rhs: Rhs)
+>>=	        ShrAssign	    fn shr_assign(&mut self, rhs: Rhs)
+*/
+
+/* ---- Unary Operators ----
+Operator	Trait	    Function Signature
+-	        Neg	        fn neg(self) -> Output
+!	        Not	        fn not(self) -> Output
+*/
+use std::ops::Mul;
+#[derive(Debug)]
+struct Complex {
+    real: f64,
+    imag: f64,
+}
+
+impl Mul for Complex {
+    type Output = Complex;
+    fn mul(self, rhs: Complex) -> Self::Output {
+        Complex {
+            real: self.real * rhs.real - self.imag * rhs.imag,
+            imag: self.real * rhs.imag + self.imag * rhs.real,
+        }
+    }
+}
+
+fn main() {
+    let c1 = Complex {
+        real: 3.0,
+        imag: 2.0,
+    };
+
+    let c2 = Complex {
+        real: 1.0,
+        imag: 4.0,
+    };
+    // let product = c1 * c2;
+
+    let product = c1.mul(c2);
+
+    let a = 1.mul(2);
+
+    println!("{:?}", product);
+}
+
+/*
+----------------------------------------------------------------------------------------------------
+Понятие / Тема           | Объяснение
+-------------------------|--------------------------------------------------------------------------
+Перегрузка операторов    | В Rust перегрузка операторов делается через реализацию трейтов из std::ops.
+                         | Каждому оператору соответствует свой трейт, например Add или Mul.
+                         | Чтобы перегрузить оператор, нужно реализовать соответствующий ему трейт.
+
+Категории операторов     | Арифметические операторы
+                         | Побитовые операторы
+                         | Операторы сравнения
+                         | Операторы присваивания
+                         | Унарные операторы
+                         | У каждого оператора есть свой трейт и метод, который нужно реализовать.
+------------------------------------------------------------------------------------------------------
+*/
