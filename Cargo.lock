@@ -585,6 +585,14 @@ name = "downcasting_trait_objects"
 version = "0.1.0"
 
 [[package]]
+name = "drop_and_partial_move"
+version = "0.1.0"
+
+[[package]]
+name = "drop_check_basics"
+version = "0.1.0"
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
