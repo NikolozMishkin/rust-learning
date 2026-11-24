@@ -593,6 +593,14 @@ name = "drop_check_basics"
 version = "0.1.0"
 
 [[package]]
+name = "drop_order_part_1_move"
+version = "0.1.0"
+
+[[package]]
+name = "drop_order_part_2_move"
+version = "0.1.0"
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,10 @@
+[package]
+name = "drop_order_part_2_move"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
